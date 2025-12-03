@@ -1,7 +1,6 @@
 import os
 import pandas as pd
 from config.settings import DataConfig
-from sklearn.preprocessing import LabelEncoder
 from .utils import log_message
 
 def load_and_clean_data(filepath):
@@ -12,14 +11,17 @@ def load_and_clean_data(filepath):
 
     df = pd.read_csv(filepath, sep=DataConfig.CSV_SEPARATOR, low_memory=False)
 
-    # Filter out excluded videos if specified
-    excluded = DataConfig.EXCLUDED_VIDEOS
-    if len(excluded) > 0 and 'VideoName' in df.columns:
-        initial_len = len(df)
-        df = df[~df['VideoName'].isin(excluded)]
-        removed_count = initial_len - len(df)
-        if removed_count > 0:
-            log_message(f"Filtered out {removed_count} rows from excluded videos: {excluded}")
+    # 0. Exclude specific rows based on config
+    excluded_cfg = getattr(DataConfig, 'EXCLUDED_LINES', None)
+    if excluded_cfg:
+        col_name = excluded_cfg.get('collum_name')
+        values = excluded_cfg.get('values', [])
+        if values and col_name in df.columns:
+            initial_len = len(df)
+            df = df[~df[col_name].isin(values)]
+            removed_count = initial_len - len(df)
+            if removed_count > 0:
+                log_message(f"Filtered out {removed_count} rows from excluded {col_name}: {values}")
 
     # 1. Remove unwanted columns
     if DataConfig.REMOVE_COLUMNS:

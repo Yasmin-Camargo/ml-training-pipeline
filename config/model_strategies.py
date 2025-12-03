@@ -24,19 +24,22 @@ def _process_model_B(df):
     )
     return df_out
 
-def _process_logistic_raw(df):
-    """
-    - Dados brutos (sem filtro, sem renomear labels).
-    """
+def _process_raw(df):
+    """No processing, return raw dataframe."""
     return df.copy()
 
-# Scenario Definitions including dynamic classifier type
 
+# Scenario Definitions including dynamic classifier type
 MODEL_STRATEGIES = {
     "logistic_regression": {
-        "description": "Model C (Logistic Regression - Raw Data)",
-        "process_function": _process_logistic_raw,
+        "description": "Logistic Regression",
+        "process_function": _process_raw,
         "classifier_type": "logistic_regression"
+    },
+    "decision_tree": {
+        "description": "Decision Tree",
+        "process_function": _process_raw,
+        "classifier_type": "decision_tree"
     }
 }
 

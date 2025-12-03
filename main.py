@@ -124,7 +124,7 @@ def main():
 if __name__ == "__main__":
     main()
 
-# Função para exportar árvore para C++
+# Function to export tree to C++
 def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
     try:
         os.makedirs(output_dir, exist_ok=True)

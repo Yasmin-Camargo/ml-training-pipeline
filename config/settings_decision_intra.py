@@ -51,13 +51,16 @@ class DataConfig:
     ]
     REMOVE_COLUMNS = REMOVE_COLUMNS_CODEC
     
-    EXCLUDED_VIDEOS = [
-        "ParkRunning3", 
-        "BasketballDrive", 
-        "BasketballDrill", 
-        "BasketballPass", 
-        "KristenAndSara"
-    ]
+    EXCLUDED_LINES = {
+        "collum_name": "VideoName",
+        "values": [
+            "ParkRunning3", 
+            "BasketballDrive", 
+            "BasketballDrill", 
+            "BasketballPass", 
+            "KristenAndSara"
+        ]
+    }
     
     # Columns used for balancing logic
     BALANCE_COLUMNS = ['IsIntra', 'TargetQP', 'FrameWidth', 'FrameHeight']
