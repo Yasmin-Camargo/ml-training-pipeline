@@ -28,12 +28,23 @@ SEARCH_SPACES = {
         'max_leaf_nodes': list(range(10, 500, 25)),
         'max_depth': list(range(1, 30)),
     },
-    'logistic_regression': {
-        'penalty': ['l2', 'none'],
+    'logistic_regression': [
+    {
+        # Solvers that do NOT accept L1 or ElasticNet
+        'solver': ['lbfgs', 'newton-cg', 'sag'],
+        'penalty': ['l2', None], 
         'C': [0.01, 0.1, 1, 10, 100],
-        'solver': ['lbfgs', 'saga'],
-        'max_iter': [100, 200, 500, 1000],
+        'max_iter': [200, 500, 2000]
+    },
+    {
+        # Solver that accepts L1 and ElasticNet
+        'solver': ['saga'],
+        'penalty': ['l1', 'l2', 'elasticnet', None],
+        'C': [0.01, 0.1, 1, 10, 100],
+        'l1_ratio': [0, 0.5, 1],
+        'max_iter': [200, 500, 2000]
     }
+]
 }
 
 # Validation Curve Parameters

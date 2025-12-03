@@ -10,7 +10,7 @@ from src.utils import log_message
 from src.data import load_and_clean_data
 from src.grouping import apply_grouping_strategy
 from config.model_strategies import MODEL_STRATEGIES
-from src.preprocessing import balance_group_data, split_and_sample
+from src.preprocessing import balance_group_data, split_and_sample, normalize_data
 from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
 import src.DecisionTreeToCpp as to_cpp
@@ -76,6 +76,10 @@ def main():
                 
                 # C. Split Train/Test and Sample for Tuning
                 X_train, X_test, y_train, y_test, X_train_samp, y_train_samp = split_and_sample(df_balanced)
+                
+                # C.1 Normalize Data if configured
+                if ExperimentConfig.NORMALIZE_DATA:
+                    X_train, X_test, X_train_samp = normalize_data(X_train, X_test, X_train_samp)
                 
                 # D. (Optional) Validation Curves
                 if ExperimentConfig.RUN_VALIDATION_CURVES:

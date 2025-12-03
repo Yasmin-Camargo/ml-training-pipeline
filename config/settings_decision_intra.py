@@ -14,7 +14,50 @@ class DataConfig:
     CSV_SEPARATOR = ';'
     TARGET_COLUMN = 'IsIntra'
     
-    REMOVE_COLUMNS = ['VideoName', 'EncoderPreset', 'BlockAreaGroup']
+    REMOVE_COLUMNS_CODEC = ['VideoName', 'EncoderPreset', 'Frame', 'X_Pos', 'Y_Pos']
+    REMOVE_COLUMNS_IMAGE = [
+        'blk_pixel_mean',
+        'blk_pixel_variance',
+        'blk_pixel_std_dev',
+        'blk_pixel_sum',
+        'blk_var_h',
+        'blk_var_v',
+        'blk_std_v',
+        'blk_std_h',
+        'blk_min',
+        'blk_max',
+        'blk_range',
+        'blk_laplacian_var',
+        'blk_entropy',
+        'blk_sobel_gv',
+        'blk_sobel_gh',
+        'blk_sobel_mag',
+        'blk_sobel_dir',
+        'blk_sobel_razao_grad',
+        'blk_prewitt_gv',
+        'blk_prewitt_gh',
+        'blk_prewitt_mag',
+        'blk_prewitt_dir',
+        'blk_prewitt_razao_grad',
+        'blk_had_dc',
+        'blk_had_energy_total',
+        'blk_had_energy_ac',
+        'blk_had_max',
+        'blk_had_min',
+        'blk_had_topleft',
+        'blk_had_topright',
+        'blk_had_bottomleft',
+        'blk_had_bottomright',
+    ]
+    REMOVE_COLUMNS = REMOVE_COLUMNS_CODEC
+    
+    EXCLUDED_VIDEOS = [
+        "ParkRunning3", 
+        "BasketballDrive", 
+        "BasketballDrill", 
+        "BasketballPass", 
+        "KristenAndSara"
+    ]
     
     # Columns used for balancing logic
     BALANCE_COLUMNS = ['IsIntra', 'TargetQP', 'FrameWidth', 'FrameHeight']
@@ -25,6 +68,7 @@ class ExperimentConfig:
     N_JOBS = -1
     TEST_SIZE = 0.25
     MAX_SAMPLES_PER_CLASS = 100000
+    NORMALIZE_DATA = True
     
     # Cross Validation
     CV_FOLDS = 5
@@ -36,7 +80,7 @@ class ExperimentConfig:
     RFE_MIN_FEATURES = 5
     
     # Hyperparameter Tuning
-    RANDOM_SEARCH_ITER = 100
+    RANDOM_SEARCH_ITER = 2000
     
     # Flags
     RUN_VALIDATION_CURVES = False

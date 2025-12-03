@@ -16,6 +16,8 @@ class DataConfig:
     
     REMOVE_COLUMNS = ['VideoName']
     
+    EXCLUDED_VIDEOS = []
+    
     # Columns used for balancing logic
     BALANCE_COLUMNS = ['MTSChosen', 'cuQP', 'FrameWidth', 'FrameHeight']
 
@@ -25,6 +27,7 @@ class ExperimentConfig:
     N_JOBS = -1
     TEST_SIZE = 0.25
     MAX_SAMPLES_PER_CLASS = 100000
+    NORMALIZE_DATA = False
     
     # Cross Validation
     CV_FOLDS = 5

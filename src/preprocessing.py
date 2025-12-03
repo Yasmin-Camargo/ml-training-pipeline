@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
+from sklearn.preprocessing import StandardScaler
 from config.settings import DataConfig, ExperimentConfig
 from .utils import log_message
 
@@ -37,6 +38,30 @@ def balance_group_data(df_group):
     
     log_message(f"Group balanced. Total: {len(balanced_df)} samples.")
     return balanced_df.drop(columns=['balance_key'])
+
+
+def normalize_data(X_train, X_test, X_train_samp):
+    """Normalizes data using StandardScaler (fit on Train only)."""
+    log_message("Normalizing data (fit on Train only)...")
+    
+    scaler = StandardScaler()
+    scaler.fit(X_train)
+    
+    feature_names = X_train.columns.tolist()
+    
+    X_train_norm = pd.DataFrame(scaler.transform(X_train), columns=feature_names, index=X_train.index)
+    X_test_norm = pd.DataFrame(scaler.transform(X_test), columns=feature_names, index=X_test.index)
+    X_train_samp_norm = pd.DataFrame(scaler.transform(X_train_samp), columns=feature_names, index=X_train_samp.index)
+    
+    means_str = ", ".join(f"{m:.6f}" for m in scaler.mean_)
+    scales_str = ", ".join(f"{s:.6f}" for s in scaler.scale_) # scale_ é o desvio padrão
+    
+    log_message(f"Normalized params:")
+    log_message(f"- Feature Order: {feature_names}")
+    log_message(f"- means[] = {{ {means_str} }};")
+    log_message(f"- scales[] = {{ {scales_str} }};")
+    
+    return X_train_norm, X_test_norm, X_train_samp_norm
 
 def split_and_sample(df):
     """Splits into Train/Test and creates a smaller sample for Tuning."""
