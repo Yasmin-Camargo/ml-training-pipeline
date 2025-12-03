@@ -14,7 +14,7 @@ from src.preprocessing import balance_group_data, split_and_sample, normalize_da
 from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
 import src.DecisionTreeToCpp as to_cpp
-from src.visualization import generate_validation_curves
+from src.visualization import generate_validation_curves, generate_learning_curve
 
 def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
     try:
@@ -81,11 +81,14 @@ def main():
                 if ExperimentConfig.NORMALIZE_DATA:
                     X_train, X_test, X_train_samp = normalize_data(X_train, X_test, X_train_samp)
                 
-                # D. (Optional) Validation Curves
-                if ExperimentConfig.RUN_VALIDATION_CURVES:
+                # D. (Optional) Validation / Learning Curves
+                if ExperimentConfig.RUN_VALIDATION_CURVES or ExperimentConfig.RUN_LEARNING_CURVES:
                     subdir = f"{grouping_name}_{model_strategie_id}_{group_id_clean}"
-                    generate_validation_curves(X_train_samp, y_train_samp, subdir)
-                    continue 
+                    if ExperimentConfig.RUN_VALIDATION_CURVES:
+                        generate_validation_curves(X_train_samp, y_train_samp, subdir, model_type=current_model_type)
+                    if ExperimentConfig.RUN_LEARNING_CURVES:
+                        generate_learning_curve(X_train_samp, y_train_samp, subdir, model_type=current_model_type, train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES)
+                    continue
 
                 # E. Feature Selection (RFE) using dynamic model type
                 selected_cols = run_rfe(X_train_samp, y_train_samp, current_model_type)

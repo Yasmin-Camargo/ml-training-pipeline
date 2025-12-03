@@ -43,6 +43,8 @@ class ExperimentConfig:
     
     # Flags
     RUN_VALIDATION_CURVES = False
+    RUN_LEARNING_CURVES = False
+    LEARNING_CURVE_TRAIN_SIZES = [0.1, 0.25, 0.5, 0.75, 1.0]
     EXPORT_CPP = True
     
     # Active Grouping Strategies

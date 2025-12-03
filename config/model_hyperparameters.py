@@ -49,8 +49,14 @@ SEARCH_SPACES = {
 
 # Validation Curve Parameters
 VAL_CURVE_PARAMS = {
-    "max_depth": list(range(2, 10)) + list(range(10, 101, 10)),
-    "min_samples_split": list(range(2, 25)) + list(range(25, 1001, 25)),
-    "min_samples_leaf": list(range(2, 25)) + list(range(25, 1001, 25)),
-    "max_leaf_nodes": list(range(2, 25)) + list(range(25, 1000, 25)),
+    'decision_tree': {
+        "max_depth": list(range(2, 10)) + list(range(10, 101, 10)),
+        "min_samples_split": list(range(2, 25)) + list(range(25, 1001, 25)),
+        "min_samples_leaf": list(range(1, 25)) + list(range(25, 1001, 25)),
+        "max_leaf_nodes": list(range(2, 25)) + list(range(25, 1000, 25)),
+    },
+    'logistic_regression': {
+        "C": [0.01, 0.1, 1, 10, 100],
+        "l1_ratio": [0, 0.5, 1]
+    }
 }
