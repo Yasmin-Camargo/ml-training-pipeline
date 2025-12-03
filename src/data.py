@@ -5,7 +5,7 @@ from .utils import log_message
 
 def load_and_clean_data(filepath):
     """Loads data, removes nulls/duplicates/unwanted columns."""
-    log_message(f"Loading data from {filepath}...")
+    log_message(f"Loading data from {filepath}...", level="INFO")
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
 
@@ -21,28 +21,28 @@ def load_and_clean_data(filepath):
             df = df[~df[col_name].isin(values)]
             removed_count = initial_len - len(df)
             if removed_count > 0:
-                log_message(f"Filtered out {removed_count} rows from excluded {col_name}: {values}")
+                log_message(f"Filtered out {removed_count} rows from excluded {col_name}: {values}", level="WARNING")
 
     # 1. Remove unwanted columns
     if DataConfig.REMOVE_COLUMNS:
         df = df.drop(columns=DataConfig.REMOVE_COLUMNS, errors='ignore')
-        log_message(f"Removed columns: {DataConfig.REMOVE_COLUMNS}")
+        log_message(f"Removed columns: {DataConfig.REMOVE_COLUMNS}", level="INFO")
 
     # 2. Handle Nulls
     if df.isnull().values.any():
         before = len(df)
         df = df.dropna()
-        log_message(f"Removed {before - len(df)} rows with null values.")
+        log_message(f"Removed {before - len(df)} rows with null values.", level="WARNING")
 
     # 3. Handle Duplicates
     before = len(df)
     df = df.drop_duplicates()
     if len(df) < before:
-        log_message(f"Removed {before - len(df)} duplicate rows.")
+        log_message(f"Removed {before - len(df)} duplicate rows.", level="WARNING")
     for col in df.select_dtypes(include='number').columns:
         clipped = df[col].clip(lower=-1e18, upper=1e18)
         if not clipped.equals(df[col]):
-            log_message(f"Clipped values in column: {col}")
+            log_message(f"Clipped values in column: {col}", level="DEBUG")
         df[col] = clipped
         
     # 5. Convert categorical columns
@@ -60,6 +60,6 @@ def load_and_clean_data(filepath):
             new_values.append(mapping[val])
 
         df[col] = new_values
-        log_message(f"Encoded '{col}' with mapping: {mapping}")
+        log_message(f"Encoded '{col}' with mapping: {mapping}", level="DEBUG")
         
     return df

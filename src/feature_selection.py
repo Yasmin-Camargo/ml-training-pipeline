@@ -9,7 +9,7 @@ def run_rfe(X, y, model_type):
     if not ExperimentConfig.RFE_ENABLED:
         return X.columns.tolist()
 
-    log_message(f"Running RFECV with {model_type}...")
+    log_message(f"Running RFECV with {model_type}...", level="INFO")
     start_time = time.time()
     
     model_conf = BASE_MODELS[model_type]
@@ -27,7 +27,7 @@ def run_rfe(X, y, model_type):
     rfecv.fit(X, y)
     
     selected_features = X.columns[rfecv.support_].tolist()
-    log_message(f"RFECV finished in {time.time() - start_time:.2f}s. Optimal number of features: {rfecv.n_features_}")
-    log_message(f"Selected Features: {selected_features}")
+    log_message(f"RFECV finished in {time.time() - start_time:.2f}s. Optimal number of features: {rfecv.n_features_}", level="INFO")
+    log_message(f"Selected Features: {selected_features}", level="DEBUG")
     
     return selected_features

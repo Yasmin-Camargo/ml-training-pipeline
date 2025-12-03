@@ -6,7 +6,7 @@ from .utils import log_message
 
 def tune_hyperparameters(X, y, model_type):
     """Executes RandomizedSearchCV to find best params."""
-    log_message(f"Starting Randomized Hyperparameter Search for {model_type}...")
+    log_message(f"Starting Randomized Hyperparameter Search for {model_type}...", level="INFO")
     start_time = time.time()
     
     model_conf = BASE_MODELS[model_type]
@@ -26,15 +26,15 @@ def tune_hyperparameters(X, y, model_type):
     )
     
     search.fit(X, y)
-    log_message(f"Best parameters found: {search.best_params_}")
-    log_message(f"Best cross-validation score: {search.best_score_:.4f}")
-    log_message(f"Total time: {time.time() - start_time:.2f} seconds")
+    log_message(f"Best parameters found: {search.best_params_}", level="INFO")
+    log_message(f"Best cross-validation score: {search.best_score_:.4f}", level="INFO")
+    log_message(f"Total time: {time.time() - start_time:.2f} seconds", level="DEBUG")
     
     return search.best_params_
 
 def train_final_model(X_train, y_train, model_type, best_params):
     """Trains the final model with best params on full training set."""
-    log_message(f"Training final {model_type} model...")
+    log_message(f"Training final {model_type} model...", level="INFO")
     model_conf = BASE_MODELS[model_type]
     
     # Merge static params with tuned params

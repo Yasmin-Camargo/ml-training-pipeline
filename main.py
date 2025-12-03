@@ -25,35 +25,35 @@ def export_tree_to_cpp(model, feature_names, class_names, function_name, output_
         src_file = function_name + '.h'
         dst_file = os.path.join(output_dir, src_file)
         shutil.move(src_file, dst_file)
-        log_message(f"✓ Model exported to C++ at: {dst_file}")
+        log_message(f"✓ Model exported to C++ at: {dst_file}", level="INFO")
     except ImportError:
-        log_message(f"⚠ DecisionTreeToCpp module not found. C++ export skipped.")
+        log_message(f"DecisionTreeToCpp module not found. C++ export skipped.", level="ERROR")
     except Exception as e:
-        log_message(f"✖ Error exporting to C++: {e}")
+        log_message(f"Error exporting to C++: {e}", level="ERROR")
 
 def main():
-    log_message("=== Starting VVC ML Pipeline ===")
+    log_message("=== Starting VVC ML Pipeline ===", level="stage")
     
     # 1. Load Data
     try:
         df_raw = load_and_clean_data(DataConfig.FILE_PATH)
         #df_raw = df_raw.sample(n=5000, random_state=42) # TODO: remover depois
     except Exception as e:
-        log_message(f"Critical Error loading data: {e}")
+        log_message(f"Critical Error loading data: {e}", level="CRITICAL")
         sys.exit(1)
 
     # 2. Iterate over Grouping Strategies (area, max, single, etc.)
     for grouping_name in ExperimentConfig.ACTIVE_GROUPINGS:
-        
+        log_message(f"--- Grouping Strategy: {grouping_name} ---", level="stage")
         try:
             df_grouped, groups = apply_grouping_strategy(df_raw, grouping_name)
         except ValueError as e:
-            log_message(f"Skipping strategy {grouping_name}: {e}")
+            log_message(f"Skipping strategy {grouping_name}: {e}", level="WARNING")
             continue
 
         # 3. Iterate over MODEL_STRATEGIES (Model A, Model B)
         for model_strategie_id, model_strategie_cfg in MODEL_STRATEGIES.items():
-            log_message(f"\n--- model_strategie: {model_strategie_id} ({model_strategie_cfg['description']}) ---")
+            log_message(f"--- model_strategie: {model_strategie_id} ({model_strategie_cfg['description']}) ---", level="stage")
             
             # Apply specific model_strategie transformation (label modification/filtering)
             df_model_strategie = model_strategie_cfg['process_function'](df_grouped)
@@ -64,7 +64,8 @@ def main():
             # 4. Iterate over Block Groups (e.g., 64x64, 32x32)
             for block_group in groups:
                 group_id_clean = block_group.replace(":", "-").replace("×", "x")
-                log_message(f"\n>>> Processing Group: {block_group} | Strategy: {grouping_name} | Model Type: {current_model_type}")
+                log_message(f"--- Block Group: {block_group} ---", level="stage")
+                log_message(f"\n>>> Processing Group: {block_group} | Strategy: {grouping_name} | Model Type: {current_model_type}", level="INFO")
                 
                 # A. Filter by block group
                 df_block = df_model_strategie[df_model_strategie['BlockGroup'] == block_group].copy()
@@ -91,18 +92,22 @@ def main():
                     continue
 
                 # E. Feature Selection (RFE) using dynamic model type
+                log_message(f"--- Feature Selection (RFE) ---", level="stage")
                 selected_cols = run_rfe(X_train_samp, y_train_samp, current_model_type)
                 
                 # F. Hyperparameter Tuning (Random Search)
+                log_message(f"--- Hyperparameter Tuning ---", level="stage")
                 best_params = tune_hyperparameters(X_train_samp[selected_cols], y_train_samp, current_model_type)
                 
                 # G. Final Training (Full Train set, Selected Features)
+                log_message(f"--- Final Training ---", level="stage")
                 final_model = train_final_model(X_train[selected_cols], y_train, current_model_type, best_params)
                 
                 # H. Evaluation
+                log_message(f"--- Evaluation ---", level="stage")
                 preds = final_model.predict(X_test[selected_cols])
                 report = classification_report(y_test, preds, zero_division=0)
-                log_message(f"Classification Report:\n{report}")
+                log_message(f"Classification Report:\n{report}", level="INFO")
                 
                 # Save Report
                 os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -112,17 +117,18 @@ def main():
                     f.write(report)
 
                 # I. Export to C++ (Only if it's a decision tree)
-                    if ExperimentConfig.EXPORT_CPP and current_model_type == 'decision_tree':
-                        try:
-                            export_tree_to_cpp(
-                                final_model,
-                                list(selected_cols),
-                                sorted(y_train.unique()),
-                                f"tree_{grouping_name}_m{model_strategie_id}_{block_group.replace('x', '_')}",
-                                f'cpp_exports/{grouping_name}'
-                            )
-                        except Exception as e:
-                            log_message(f"✖ ERROR exporting to C++ ({grouping_name}) Model {model_strategie_id}, Group {block_group}: {e}")
+                if ExperimentConfig.EXPORT_CPP and current_model_type == 'decision_tree':
+                    log_message(f"--- Export to C++ ---", level="stage")
+                    try:
+                        export_tree_to_cpp(
+                            final_model,
+                            list(selected_cols),
+                            sorted(y_train.unique()),
+                            f"tree_{grouping_name}_m{model_strategie_id}_{block_group.replace('x', '_')}",
+                            f'cpp_exports/{grouping_name}'
+                        )
+                    except Exception as e:
+                        log_message(f"Error exporting to C++ ({grouping_name}) Model {model_strategie_id}, Group {block_group}: {e}", level="ERROR")
 
 if __name__ == "__main__":
     main()
@@ -132,8 +138,8 @@ def export_tree_to_cpp(model, feature_names, class_names, function_name, output_
     try:
         os.makedirs(output_dir, exist_ok=True)
         to_cpp.save_code(model, feature_names, class_names, function_name=function_name, output_dir=output_dir)
-        log_message(f"✓ Model exported to C++ at: {output_dir}")
+        log_message(f"✓ Model exported to C++ at: {output_dir}", level="INFO")
     except ImportError:
-        log_message(f"⚠ DecisionTreeToCpp module not found. C++ export skipped.")
+        log_message(f"DecisionTreeToCpp module not found. C++ export skipped.", level="ERROR")
     except Exception as e:
-        log_message(f"✖ Error exporting to C++: {e}")
+        log_message(f"Error exporting to C++: {e}", level="ERROR")

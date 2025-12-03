@@ -68,7 +68,7 @@ def apply_grouping_strategy(df, strategy_name):
     if strategy_name not in GROUPING_STRATEGIES:
         raise ValueError(f"Grouping strategy '{strategy_name}' not found.")
     
-    log_message(f"Applying grouping strategy: {strategy_name}")
+    log_message(f"Applying grouping strategy: {strategy_name}", level="INFO")
     
     df_out = df.copy()
     df_out["BlockGroup"] = df_out.apply(GROUPING_STRATEGIES[strategy_name], axis=1)
