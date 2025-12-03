@@ -1,130 +1,128 @@
+# ----------------------------------------------
+#from config.settings_decision_mts import DataConfig, ExperimentConfig, RESULTS_DIR, EXPORTS_DIR
+from config.settings_decision_intra import DataConfig, ExperimentConfig, RESULTS_DIR, EXPORTS_DIR
+# ----------------------------------------------
+   
 import os
-import pandas as pd
-from config import file_path, export_decision_tree_cpp, MAX_SAMPLES_PER_CLASS, is_validation_curve, REMOVE_COLUMNS, ACTIVE_GROUPINGS, CSV_SEPARATOR, RANDOM_STATE
-from grouping import GROUPING_STRATEGIES
-from logger import log_message
-from grouping import *
-from data_prep import balance_data, split_train_test
-from feature_selection import recursive_feature_elimination_cv
-from model_tuning import random_search
-from validation_curves import generate_validation_curves
-from sklearn.utils import resample
+import sys
 from sklearn.metrics import classification_report
-from model_config import BASE_MODEL_CONFIG
-
-def run_all_experiments():
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    df = pd.read_csv(file_path, sep=CSV_SEPARATOR, low_memory=False)
-    df = df.sample(n=5000, random_state=42) # TODO: remover depois
-
-    # Remover colunas constantes
-    """nunique = df.nunique()
-    constant_cols = nunique[nunique <= 1].index.tolist()
-    if constant_cols:
-        df = df.drop(columns=constant_cols)
-        log_message(f"Removed constant columns: {constant_cols}")
-"""
-    # Remover colunas especificadas
-    if REMOVE_COLUMNS:
-        df = df.drop(columns=REMOVE_COLUMNS, errors='ignore')
-        log_message(f"Removed columns: {REMOVE_COLUMNS}")
-        
-    # Identificar e remover linhas com valores nulos
-    null_counts = df.isnull().sum()
-    cols_with_nulls = null_counts[null_counts > 0]
-    total_null_rows = df.isnull().any(axis=1).sum()
-    if total_null_rows > 0:
-        log_message(f"Found nulls in columns: {cols_with_nulls.to_dict()}")
-        log_message(f"Removed {total_null_rows} rows containing null values.")
-        df = df.dropna(how='any')
-    else:
-        log_message("No null values found.")
-
-    # Remover linhas duplicadas
-    before = len(df)
-    df = df.drop_duplicates()
-    after = len(df)
-    if after < before:
-        log_message(f"Removed {before - after} duplicate rows.")
-
-    for col in df.select_dtypes(include='number').columns:
-        df[col] = df[col].clip(lower=-1e18, upper=1e18)
-
-    for grouping_name in ACTIVE_GROUPINGS:        
-        try:
-            df, groups = apply_grouping(df, grouping_name, GROUPING_STRATEGIES)
-        except Exception as e:
-            log_message(f"⚠ Warning: {e}. Skipping.")
-            continue
-
-        for model_id, model_config in MODEL_DEFINITIONS.items():
-            
-            process_fn = model_config['process_function']
-            classifier_name = model_config['classifier_name']
-            
-            log_message(f"--- Preparing data for Model {model_id} ({classifier_name}) ---")
-            
-            try:
-                df_model = process_fn(df)
-            except Exception as e:
-                log_message(f"Error preparing data for model {model_id}: {e}")
-                continue
-            
-            for block_group in groups:
-                try:
-                    log_message(f"--- Processing ({grouping_name}) | Model {model_id} | Group {block_group} ---")
-                    
-                    df_balance = balance_data(df_model, block_group)
-                    
-                    X_train, X_test, y_train, y_test = split_train_test(df_balance)
-
-                    df_train_temp = pd.concat([X_train, y_train], axis=1)
-                    df_train_sampled = pd.concat([
-                        resample(g, replace=False, n_samples=min(len(g), MAX_SAMPLES_PER_CLASS), random_state=RANDOM_STATE)
-                        for _, g in df_train_temp.groupby(y_train.name)
-                    ])
-                    X_train_sampled = df_train_sampled.drop(columns=[y_train.name])
-                    y_train_sampled = df_train_sampled[y_train.name]
-
-                    if is_validation_curve:
-                        generate_validation_curves(X_train_sampled, y_train_sampled, grouping_name, model_id, block_group)
-                        continue
-
-                    selected_mask = recursive_feature_elimination_cv(X_train_sampled, y_train_sampled, classifier_name)
-                    selected_features = X_train.columns[selected_mask]
-                    
-                    # 2. Random Search alinhado (passando o nome)
-                    best_params = random_search(X_train_sampled[selected_features], y_train_sampled, classifier_name)
-                    
-                    base_cfg = BASE_MODEL_CONFIG[classifier_name]
-                    final_model = base_cfg['estimator'](**best_params)
-                      
-                    log_message(f"Training final {classifier_name} model...")
-                    final_model.fit(X_train[selected_features], y_train)
-
-                    final_preds = final_model.predict(X_test[selected_features])
-                    #final_acc = accuracy_score(y_test, final_preds)
-                    
-                    final_report = classification_report(y_test, final_preds, zero_division=0)
-                    log_message(f"Classification Report:\n{final_report}")
-                    results_dir = f'results/{grouping_name}'
-                    os.makedirs(results_dir, exist_ok=True)
-                    filename = f"Result_{grouping_name}_model{model_id}_{block_group.replace('×', 'x')}.txt"
-                    with open(os.path.join(results_dir, filename), 'w') as f:
-                        f.write(final_report)
-
-                    if classifier_name == 'decision_tree' and export_decision_tree_cpp:
-                        export_tree_to_cpp(final_model, list(selected_features), sorted(y_train.unique()), 
-                                           f"tree_{grouping_name}_m{model_id}_{block_group.replace('x', '_')}", 
-                                           f'cpp_exports/{grouping_name}')
-
-                except Exception as e:
-                    log_message(f"✖ ERROR processing ({grouping_name}) Model {model_id}, Group {block_group}: {e}")
+from src.utils import log_message
+from src.data import load_and_clean_data
+from src.grouping import apply_grouping_strategy
+from config.model_grouping_strategies import GROUPING_STRATEGIES
+from src.preprocessing import balance_group_data, split_and_sample
+from src.feature_selection import run_rfe
+from src.training import tune_hyperparameters, train_final_model
+import src.DecisionTreeToCpp as to_cpp
+from src.visualization import generate_validation_curves
 
 def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
     try:
-        import DecisionTreeToCpp as to_cpp
+        os.makedirs(output_dir, exist_ok=True)
+        import shutil
+        import src.DecisionTreeToCpp as to_cpp
+        to_cpp.save_code(model, feature_names, class_names, function_name=function_name)
+        src_file = function_name + '.h'
+        dst_file = os.path.join(output_dir, src_file)
+        shutil.move(src_file, dst_file)
+        log_message(f"✓ Model exported to C++ at: {dst_file}")
+    except ImportError:
+        log_message(f"⚠ DecisionTreeToCpp module not found. C++ export skipped.")
+    except Exception as e:
+        log_message(f"✖ Error exporting to C++: {e}")
+
+def main():
+    log_message("=== Starting VVC ML Pipeline ===")
+    
+    # 1. Load Data
+    try:
+        df_raw = load_and_clean_data(DataConfig.FILE_PATH)
+        #df_raw = df_raw.sample(n=5000, random_state=42) # TODO: remover depois
+    except Exception as e:
+        log_message(f"Critical Error loading data: {e}")
+        sys.exit(1)
+
+    # 2. Iterate over Grouping Strategies (area, max, single, etc.)
+    for grouping_name in ExperimentConfig.ACTIVE_GROUPINGS:
+        
+        try:
+            df_grouped, groups = apply_grouping_strategy(df_raw, grouping_name)
+        except ValueError as e:
+            log_message(f"Skipping strategy {grouping_name}: {e}")
+            continue
+
+        # 3. Iterate over GROUPING_STRATEGIES (Model A, Model B)
+        for grouping_strategie_id, grouping_strategie_cfg in GROUPING_STRATEGIES.items():
+            log_message(f"\n--- grouping_strategie: {grouping_strategie_id} ({grouping_strategie_cfg['description']}) ---")
+            
+            # Apply specific grouping_strategie transformation (label modification/filtering)
+            df_grouping_strategie = grouping_strategie_cfg['process_function'](df_grouped)
+            
+            # Dynamic Model Type
+            current_model_type = grouping_strategie_cfg['classifier_type']
+
+            # 4. Iterate over Block Groups (e.g., 64x64, 32x32)
+            for block_group in groups:
+                group_id_clean = block_group.replace(":", "-").replace("×", "x")
+                log_message(f"\n>>> Processing Group: {block_group} | Strategy: {grouping_name} | Model Type: {current_model_type}")
+                
+                # A. Filter by block group
+                df_block = df_grouping_strategie[df_grouping_strategie['BlockGroup'] == block_group].copy()
+                if df_block.empty:
+                    continue
+
+                # B. Balance Data
+                df_balanced = balance_group_data(df_block)
+                
+                # C. Split Train/Test and Sample for Tuning
+                X_train, X_test, y_train, y_test, X_train_samp, y_train_samp = split_and_sample(df_balanced)
+                
+                # D. (Optional) Validation Curves
+                if ExperimentConfig.RUN_VALIDATION_CURVES:
+                    subdir = f"{grouping_name}_{grouping_strategie_id}_{group_id_clean}"
+                    generate_validation_curves(X_train_samp, y_train_samp, subdir)
+                    continue 
+
+                # E. Feature Selection (RFE) using dynamic model type
+                selected_cols = run_rfe(X_train_samp, y_train_samp, current_model_type)
+                
+                # F. Hyperparameter Tuning (Random Search)
+                best_params = tune_hyperparameters(X_train_samp[selected_cols], y_train_samp, current_model_type)
+                
+                # G. Final Training (Full Train set, Selected Features)
+                final_model = train_final_model(X_train[selected_cols], y_train, current_model_type, best_params)
+                
+                # H. Evaluation
+                preds = final_model.predict(X_test[selected_cols])
+                report = classification_report(y_test, preds, zero_division=0)
+                log_message(f"Classification Report:\n{report}")
+                
+                # Save Report
+                os.makedirs(RESULTS_DIR, exist_ok=True)
+                report_file = RESULTS_DIR / grouping_name / f"Result_{grouping_strategie_id}_{block_group.replace('×', 'x')}.txt"
+                os.makedirs(os.path.dirname(report_file), exist_ok=True)
+                with open(report_file, "w") as f:
+                    f.write(report)
+
+                # I. Export to C++ (Only if it's a decision tree)
+                    if ExperimentConfig.EXPORT_CPP and current_model_type == 'decision_tree':
+                        try:
+                            export_tree_to_cpp(
+                                final_model,
+                                list(selected_cols),
+                                sorted(y_train.unique()),
+                                f"tree_{grouping_name}_m{grouping_strategie_id}_{block_group.replace('x', '_')}",
+                                f'cpp_exports/{grouping_name}'
+                            )
+                        except Exception as e:
+                            log_message(f"✖ ERROR exporting to C++ ({grouping_name}) Model {grouping_strategie_id}, Group {block_group}: {e}")
+
+if __name__ == "__main__":
+    main()
+
+# Função para exportar árvore para C++
+def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
+    try:
         os.makedirs(output_dir, exist_ok=True)
         to_cpp.save_code(model, feature_names, class_names, function_name=function_name, output_dir=output_dir)
         log_message(f"✓ Model exported to C++ at: {output_dir}")
@@ -132,7 +130,3 @@ def export_tree_to_cpp(model, feature_names, class_names, function_name, output_
         log_message(f"⚠ DecisionTreeToCpp module not found. C++ export skipped.")
     except Exception as e:
         log_message(f"✖ Error exporting to C++: {e}")
-
-
-if __name__ == "__main__":
-    run_all_experiments()
