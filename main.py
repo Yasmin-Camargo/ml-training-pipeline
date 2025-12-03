@@ -9,7 +9,7 @@ from sklearn.metrics import classification_report
 from src.utils import log_message
 from src.data import load_and_clean_data
 from src.grouping import apply_grouping_strategy
-from config.model_grouping_strategies import GROUPING_STRATEGIES
+from config.model_strategies import MODEL_STRATEGIES
 from src.preprocessing import balance_group_data, split_and_sample
 from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
@@ -51,15 +51,15 @@ def main():
             log_message(f"Skipping strategy {grouping_name}: {e}")
             continue
 
-        # 3. Iterate over GROUPING_STRATEGIES (Model A, Model B)
-        for grouping_strategie_id, grouping_strategie_cfg in GROUPING_STRATEGIES.items():
-            log_message(f"\n--- grouping_strategie: {grouping_strategie_id} ({grouping_strategie_cfg['description']}) ---")
+        # 3. Iterate over MODEL_STRATEGIES (Model A, Model B)
+        for model_strategie_id, model_strategie_cfg in MODEL_STRATEGIES.items():
+            log_message(f"\n--- model_strategie: {model_strategie_id} ({model_strategie_cfg['description']}) ---")
             
-            # Apply specific grouping_strategie transformation (label modification/filtering)
-            df_grouping_strategie = grouping_strategie_cfg['process_function'](df_grouped)
+            # Apply specific model_strategie transformation (label modification/filtering)
+            df_model_strategie = model_strategie_cfg['process_function'](df_grouped)
             
             # Dynamic Model Type
-            current_model_type = grouping_strategie_cfg['classifier_type']
+            current_model_type = model_strategie_cfg['classifier_type']
 
             # 4. Iterate over Block Groups (e.g., 64x64, 32x32)
             for block_group in groups:
@@ -67,7 +67,7 @@ def main():
                 log_message(f"\n>>> Processing Group: {block_group} | Strategy: {grouping_name} | Model Type: {current_model_type}")
                 
                 # A. Filter by block group
-                df_block = df_grouping_strategie[df_grouping_strategie['BlockGroup'] == block_group].copy()
+                df_block = df_model_strategie[df_model_strategie['BlockGroup'] == block_group].copy()
                 if df_block.empty:
                     continue
 
@@ -79,7 +79,7 @@ def main():
                 
                 # D. (Optional) Validation Curves
                 if ExperimentConfig.RUN_VALIDATION_CURVES:
-                    subdir = f"{grouping_name}_{grouping_strategie_id}_{group_id_clean}"
+                    subdir = f"{grouping_name}_{model_strategie_id}_{group_id_clean}"
                     generate_validation_curves(X_train_samp, y_train_samp, subdir)
                     continue 
 
@@ -99,7 +99,7 @@ def main():
                 
                 # Save Report
                 os.makedirs(RESULTS_DIR, exist_ok=True)
-                report_file = RESULTS_DIR / grouping_name / f"Result_{grouping_strategie_id}_{block_group.replace('×', 'x')}.txt"
+                report_file = RESULTS_DIR / grouping_name / f"Result_{model_strategie_id}_{block_group.replace('×', 'x')}.txt"
                 os.makedirs(os.path.dirname(report_file), exist_ok=True)
                 with open(report_file, "w") as f:
                     f.write(report)
@@ -111,11 +111,11 @@ def main():
                                 final_model,
                                 list(selected_cols),
                                 sorted(y_train.unique()),
-                                f"tree_{grouping_name}_m{grouping_strategie_id}_{block_group.replace('x', '_')}",
+                                f"tree_{grouping_name}_m{model_strategie_id}_{block_group.replace('x', '_')}",
                                 f'cpp_exports/{grouping_name}'
                             )
                         except Exception as e:
-                            log_message(f"✖ ERROR exporting to C++ ({grouping_name}) Model {grouping_strategie_id}, Group {block_group}: {e}")
+                            log_message(f"✖ ERROR exporting to C++ ({grouping_name}) Model {model_strategie_id}, Group {block_group}: {e}")
 
 if __name__ == "__main__":
     main()

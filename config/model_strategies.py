@@ -31,18 +31,35 @@ def _process_logistic_raw(df):
     return df.copy()
 
 # Scenario Definitions including dynamic classifier type
-GROUPING_STRATEGIES = {
-    "logistic_regression": {
+MODEL_STRATEGIES = {
+    "decision_tree": {
         "description": "Model C (Logistic Regression - Raw Data)",
         "process_function": _process_logistic_raw,
-        "classifier_type": "logistic_regression"
+        "classifier_type": "decision_tree"
     }
 }
 
-GROUPING_STRATEGIES = {
+"""
+MODEL_STRATEGIES = {
     "logistic_regression": {
         "description": "Model C (Logistic Regression - Raw Data)",
         "process_function": _process_logistic_raw,
         "classifier_type": "logistic_regression"
     }
 }
+"""
+
+"""
+MODEL_STRATEGIES = {
+    "A": {
+        "description": "Model A (Filter after DCT2)",
+        "process_function": _process_model_A,
+        "classifier_type": "decision_tree"
+    },
+    "B": {
+        "description": "Model B (DST7 vs Others)",
+        "process_function": _process_model_B,
+        "classifier_type": "decision_tree"
+    }
+}
+"""
