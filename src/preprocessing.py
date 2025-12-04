@@ -66,23 +66,55 @@ def normalize_data(X_train, X_test, X_train_samp):
 
 
 def impute_data(X_train, X_test, X_train_samp):
-    """Imputes missing values using Mean strategy (fit on Train only)."""
-    if not (X_train.isnull().values.any() or X_test.isnull().values.any()):
-        return X_train, X_test, X_train_samp
+    """Imputes missing values using a hybrid strategy: Mean for floats, Mode for ints/objects."""
+    log_message("Imputing missing values ...", level="INFO")
+    
+    float_cols = X_train.select_dtypes(include=['float', 'float32', 'float64']).columns # Floats -> Average
+    cat_cols = X_train.select_dtypes(include=['int', 'int32', 'int64', 'object', 'category']).columns  # Ints/Objects -> Mode
+    
+    X_train_imp = X_train.copy()
+    X_test_imp = X_test.copy()
+    X_train_samp_imp = X_train_samp.copy()
+    
+    impute_map = {}
+    
+    if len(float_cols) > 0:
+        imputer_mean = SimpleImputer(strategy='mean')
+        imputer_mean.fit(X_train[float_cols])
+        
+        X_train_imp[float_cols] = imputer_mean.transform(X_train[float_cols])
+        X_test_imp[float_cols] = imputer_mean.transform(X_test[float_cols])
+        X_train_samp_imp[float_cols] = imputer_mean.transform(X_train_samp[float_cols])
+        
+        for col, val in zip(float_cols, imputer_mean.statistics_):
+            impute_map[col] = val
 
-    log_message("Imputing missing values (Mean strategy)...", level="INFO")
+    if len(cat_cols) > 0:
+        imputer_mode = SimpleImputer(strategy='most_frequent')
+        imputer_mode.fit(X_train[cat_cols])
+        
+        X_train_imp[cat_cols] = imputer_mode.transform(X_train[cat_cols])
+        X_test_imp[cat_cols] = imputer_mode.transform(X_test[cat_cols])
+        X_train_samp_imp[cat_cols] = imputer_mode.transform(X_train_samp[cat_cols])
+        
+        for col, val in zip(cat_cols, imputer_mode.statistics_):
+            impute_map[col] = val
+            
+    feature_names = X_train.columns.tolist()
+    ordered_vals = [impute_map[col] for col in feature_names]
     
-    imputer = SimpleImputer(strategy='mean')
+    vals_str = ", ".join(f"{v:.6f}" for v in ordered_vals)
     
-    imputer.fit(X_train)
+    log_message("=== Imputation Parameters -  Mean (floats) / Mode (ints) ===", level="INFO")
+    log_message(f"- Feature Order: {feature_names}", level="DEBUG")
+    log_message(f"- impute_vals[] = {{ {vals_str} }};", level="DEBUG")
     
-    cols = X_train.columns
-    
-    X_train_imp = pd.DataFrame(imputer.transform(X_train), columns=cols, index=X_train.index)
-    X_test_imp = pd.DataFrame(imputer.transform(X_test), columns=cols, index=X_test.index)
-    X_train_samp_imp = pd.DataFrame(imputer.transform(X_train_samp), columns=cols, index=X_train_samp.index)
-    
-    return X_train_imp, X_test_imp, X_train_samp_imp
+    if getattr(ExperimentConfig, 'IMPUTE_MISSING_VALUES', False):
+        log_message(">> Applying imputation to datasets (Config=True).", level="WARNING")
+        return X_train_imp, X_test_imp, X_train_samp_imp
+    else:
+        log_message(">> Skipping imputation application (Config=False). Using original data.", level="WARNING")
+        return X_train, X_test, X_train_samp
 
 
 def split_and_sample(df):

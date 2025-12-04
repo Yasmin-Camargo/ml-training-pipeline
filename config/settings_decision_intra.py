@@ -74,9 +74,9 @@ class ExperimentConfig:
     NORMALIZE_DATA = True
     
     # Handling Missing Values
-    # --> True: Impute with Mean
+    # --> True: Impute missing values
     # --> False: Remove any row with missing values (drop)
-    IMPUTE_MISSING_VALUES = True
+    IMPUTE_MISSING_VALUES = False
     
     # Cross Validation
     CV_FOLDS = 5

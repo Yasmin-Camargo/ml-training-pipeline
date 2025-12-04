@@ -30,7 +30,7 @@ class ExperimentConfig:
     NORMALIZE_DATA = False
     
     # Handling Missing Values
-    # --> True: Impute with Mean
+    # --> True: Impute missing values
     # --> False: Remove any row with missing values (drop)
     IMPUTE_MISSING_VALUES = False
     

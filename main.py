@@ -80,8 +80,7 @@ def main():
                 X_train, X_test, y_train, y_test, X_train_samp, y_train_samp = split_and_sample(df_balanced)
                 
                 # C.0 Impute missing values if any
-                if getattr(ExperimentConfig, 'IMPUTE_MISSING_VALUES', False):
-                    X_train, X_test, X_train_samp = impute_data(X_train, X_test, X_train_samp)     
+                X_train, X_test, X_train_samp = impute_data(X_train, X_test, X_train_samp)     
                                
                 # C.1 Normalize Data if configured
                 if ExperimentConfig.NORMALIZE_DATA:
