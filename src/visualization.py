@@ -63,9 +63,12 @@ def generate_validation_curves(X, y, output_subdir, model_type):
 
 
 
-def generate_learning_curve(X, y, output_subdir, model_type, train_sizes=np.linspace(0.1, 1.0, 10)):
+def generate_learning_curve(X, y, output_subdir, model_type, train_sizes=np.linspace(0.1, 1.0, 10), best_params=None):
     """
     Generate learning curve plots for a given model and dataset.
+
+    If `best_params` is provided, they will override the default estimator
+    parameters defined in `BASE_MODELS` when instantiating the estimator.
     """
 
     log_message(f"Generating learning curve for {output_subdir} (model: {model_type})...")
@@ -75,7 +78,15 @@ def generate_learning_curve(X, y, output_subdir, model_type, train_sizes=np.lins
         raise ValueError(f"Unknown model_type for learning curves: {model_type}")
 
     model_conf = BASE_MODELS[model_type]
-    clf = model_conf['estimator'](**model_conf.get('params', {}))
+    # Merge default params with any best_params provided (best_params takes precedence)
+    base_params = dict(model_conf.get('params', {}))
+    if best_params:
+        merged_params = base_params.copy()
+        merged_params.update(best_params)
+    else:
+        merged_params = base_params
+
+    clf = model_conf['estimator'](**merged_params)
 
     # Output directory
     save_path = RESULTS_DIR / "learning_curves" / output_subdir

@@ -116,6 +116,22 @@ def main():
                 with open(report_file, "w") as f:
                     f.write(report)
 
+                # J. Learning Curve after final training (optional)
+                try:
+                    if ExperimentConfig.RUN_LEARNING_CURVES_AT_END:
+                        log_message(f"--- Generating learning curve after final training ---", level="stage")
+                        subdir_final = f"{grouping_name}_{model_strategie_id}_{group_id_clean}_final"
+                    generate_learning_curve(
+                        X_train[selected_cols],
+                        y_train,
+                        subdir_final,
+                        model_type=current_model_type,
+                        train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES,
+                        best_params=best_params
+                    )
+                except Exception as e:
+                    log_message(f"Error generating end-of-pipeline learning curve: {e}", level="ERROR")
+
                 # I. Export to C++ (Only if it's a decision tree)
                 if ExperimentConfig.EXPORT_CPP and current_model_type == 'decision_tree':
                     log_message(f"--- Export to C++ ---", level="stage")
