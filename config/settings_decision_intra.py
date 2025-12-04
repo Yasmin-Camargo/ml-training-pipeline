@@ -73,6 +73,11 @@ class ExperimentConfig:
     MAX_SAMPLES_PER_CLASS = 100000
     NORMALIZE_DATA = True
     
+    # Handling Missing Values
+    # --> True: Impute with Mean
+    # --> False: Remove any row with missing values (drop)
+    IMPUTE_MISSING_VALUES = True
+    
     # Cross Validation
     CV_FOLDS = 5
     SCORING = 'accuracy'

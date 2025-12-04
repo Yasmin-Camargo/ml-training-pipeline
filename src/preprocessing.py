@@ -2,6 +2,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.utils import resample
 from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer 
 from config.settings import DataConfig, ExperimentConfig
 from .utils import log_message
 
@@ -62,6 +63,27 @@ def normalize_data(X_train, X_test, X_train_samp):
     log_message(f"- scales[] = {{ {scales_str} }};", level="DEBUG")
     
     return X_train_norm, X_test_norm, X_train_samp_norm
+
+
+def impute_data(X_train, X_test, X_train_samp):
+    """Imputes missing values using Mean strategy (fit on Train only)."""
+    if not (X_train.isnull().values.any() or X_test.isnull().values.any()):
+        return X_train, X_test, X_train_samp
+
+    log_message("Imputing missing values (Mean strategy)...", level="INFO")
+    
+    imputer = SimpleImputer(strategy='mean')
+    
+    imputer.fit(X_train)
+    
+    cols = X_train.columns
+    
+    X_train_imp = pd.DataFrame(imputer.transform(X_train), columns=cols, index=X_train.index)
+    X_test_imp = pd.DataFrame(imputer.transform(X_test), columns=cols, index=X_test.index)
+    X_train_samp_imp = pd.DataFrame(imputer.transform(X_train_samp), columns=cols, index=X_train_samp.index)
+    
+    return X_train_imp, X_test_imp, X_train_samp_imp
+
 
 def split_and_sample(df):
     """Splits into Train/Test and creates a smaller sample for Tuning."""

@@ -11,7 +11,7 @@ from src.utils import log_message
 from src.data import load_and_clean_data
 from src.grouping import apply_grouping_strategy
 from config.model_strategies import MODEL_STRATEGIES
-from src.preprocessing import balance_group_data, split_and_sample, normalize_data
+from src.preprocessing import balance_group_data, split_and_sample, normalize_data, impute_data
 from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
 import src.DecisionTreeToCpp as to_cpp
@@ -72,13 +72,17 @@ def main():
                 df_block = df_model_strategie[df_model_strategie['BlockGroup'] == block_group].copy()
                 if df_block.empty:
                     continue
-
+                
                 # B. Balance Data
                 df_balanced = balance_group_data(df_block)
                 
                 # C. Split Train/Test and Sample for Tuning
                 X_train, X_test, y_train, y_test, X_train_samp, y_train_samp = split_and_sample(df_balanced)
                 
+                # C.0 Impute missing values if any
+                if getattr(ExperimentConfig, 'IMPUTE_MISSING_VALUES', False):
+                    X_train, X_test, X_train_samp = impute_data(X_train, X_test, X_train_samp)     
+                               
                 # C.1 Normalize Data if configured
                 if ExperimentConfig.NORMALIZE_DATA:
                     X_train, X_test, X_train_samp = normalize_data(X_train, X_test, X_train_samp)

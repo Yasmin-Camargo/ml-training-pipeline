@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from config.settings import DataConfig
+from config.settings import DataConfig, ExperimentConfig
 from .utils import log_message
 
 def load_and_clean_data(filepath):
@@ -28,12 +28,29 @@ def load_and_clean_data(filepath):
         df = df.drop(columns=DataConfig.REMOVE_COLUMNS, errors='ignore')
         log_message(f"Removed columns: {DataConfig.REMOVE_COLUMNS}", level="INFO")
 
-    # 2. Handle Nulls
-    if df.isnull().values.any():
-        before = len(df)
-        df = df.dropna()
-        log_message(f"Removed {before - len(df)} rows with null values.", level="WARNING")
+    # 2. Handle null values
+    if DataConfig.TARGET_COLUMN in df.columns:
+        if df[DataConfig.TARGET_COLUMN].isnull().any():
+            before_target = len(df)
+            df = df.dropna(subset=[DataConfig.TARGET_COLUMN])
+            log_message(f"Dropped {before_target - len(df)} rows where Target '{DataConfig.TARGET_COLUMN}' was null.", level="WARNING")
 
+    if df.isnull().values.any():
+        null_counts = df.isnull().sum()
+        cols_with_nulls = null_counts[null_counts > 0]
+        
+        log_message("Detailed Null Report:", level="INFO")
+        for col, count in cols_with_nulls.items():
+            log_message(f"  -> Column '{col}': {count} missing values", level="DEBUG")
+
+        if getattr(ExperimentConfig, 'IMPUTE_MISSING_VALUES', False):
+            log_message("Config IMPUTE_MISSING_VALUES=True: Keeping rows with null features for later imputation.", level="INFO")
+        else:
+            log_message("Config IMPUTE_MISSING_VALUES=False: Removing rows with missing values.", level="WARNING")
+            before = len(df)
+            df = df.dropna()
+            log_message(f"Removed {before - len(df)} rows.", level="WARNING")
+        
     # 3. Handle Duplicates
     before = len(df)
     df = df.drop_duplicates()
