@@ -16,7 +16,7 @@ class DataConfig:
     
     REMOVE_COLUMNS = ['VideoName']
     
-    EXCLUDED_VIDEOS = []
+    EXCLUDED_LINES = {}
     
     # Columns used for balancing logic
     BALANCE_COLUMNS = ['MTSChosen', 'cuQP', 'FrameWidth', 'FrameHeight']

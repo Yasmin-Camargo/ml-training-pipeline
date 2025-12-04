@@ -14,7 +14,7 @@ BASE_MODELS = {
         'estimator': LogisticRegression,
         'params': {
             'random_state': ExperimentConfig.RANDOM_STATE,
-            'max_iter': 20000
+            'max_iter': 10000
         }
     }
 }
@@ -28,24 +28,14 @@ SEARCH_SPACES = {
         'max_leaf_nodes': list(range(10, 500, 25)),
         'max_depth': list(range(1, 30)),
     },
-    'logistic_regression': [
-    {
-        # Solvers that do NOT accept L1 or ElasticNet
-        'solver': ['lbfgs', 'newton-cg', 'sag'],
-        'penalty': ['l2', None], 
+    'logistic_regression': {
+        'solver': ['lbfgs'],
+        'penalty': ['l2'],
         'C': [0.01, 0.1, 1, 10, 100],
-        'max_iter': [200, 500, 2000]
-    },
-    {
-        # Solver that accepts L1 and ElasticNet
-        'solver': ['saga'],
-        'penalty': ['l1', 'l2', 'elasticnet', None],
-        'C': [0.01, 0.1, 1, 10, 100],
-        'l1_ratio': [0, 0.5, 1],
-        'max_iter': [200, 500, 2000]
+        'max_iter': [1000],
     }
-]
 }
+
 
 # Validation Curve Parameters
 VAL_CURVE_PARAMS = {
@@ -56,7 +46,9 @@ VAL_CURVE_PARAMS = {
         "max_leaf_nodes": list(range(2, 25)) + list(range(25, 1000, 25)),
     },
     'logistic_regression': {
-        "C": [0.01, 0.1, 1, 10, 100],
-        "l1_ratio": [0, 0.5, 1]
+        'solver': ['lbfgs'],
+        'penalty': ['l2'],
+        'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000],
+        'max_iter': [100, 200, 500, 1000, 10000]
     }
 }

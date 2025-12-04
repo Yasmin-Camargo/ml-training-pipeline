@@ -5,6 +5,7 @@ from config.settings_decision_intra import DataConfig, ExperimentConfig, RESULTS
    
 import os
 import sys
+import numpy as np
 from sklearn.metrics import classification_report
 from src.utils import log_message
 from src.data import load_and_clean_data
@@ -109,6 +110,26 @@ def main():
                 report = classification_report(y_test, preds, zero_division=0)
                 log_message(f"Classification Report:\n{report}", level="INFO")
                 
+                # Get probabilities and calculate confidence per sample
+                if hasattr(final_model, "predict_proba"):
+                    probas = final_model.predict_proba(X_test[selected_cols])
+                    confidence_per_sample = np.max(probas, axis=1)
+                    
+                    # 2. Overall Mean Confidence
+                    mean_overall = np.mean(confidence_per_sample)
+                    log_message(f">>> Group {block_group} - Mean Confidence (Overall): {mean_overall*100:.2f}%", level="INFO")
+                    
+                    # 3. Mean Confidence by Target Class (Generic)
+                    target_name = DataConfig.TARGET_COLUMN
+                    unique_classes = sorted(y_test.unique())
+                    
+                    for cls in unique_classes:
+                        # Filter rows where the actual target
+                        mask = (y_test == cls)
+                        if mask.sum() > 0:
+                            mean_cls = np.mean(confidence_per_sample[mask])
+                            log_message(f"    - {target_name} = {cls}: {mean_cls*100:.2f}% mean confidence", level="INFO")
+                                                                
                 # Save Report
                 os.makedirs(RESULTS_DIR, exist_ok=True)
                 report_file = RESULTS_DIR / grouping_name / f"Result_{model_strategie_id}_{block_group.replace('×', 'x')}.txt"
