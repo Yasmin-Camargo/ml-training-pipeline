@@ -136,20 +136,38 @@ def main():
                 os.makedirs(os.path.dirname(report_file), exist_ok=True)
                 with open(report_file, "w") as f:
                     f.write(report)
+                 
+                # Export Logistic Regression parameters   
+                if current_model_type == 'logistic_regression':
+                    log_message(f"--- Logistic Regression Parameters (Save for C++) ---", level="INFO")
+                    log_message(f"Group: {block_group}", level="INFO")
+                    
+                    # 1. Bias (Intercept)
+                    # Sklearn retorna array, pegamos o primeiro valor para classificação binária
+                    bias = final_model.intercept_[0]
+                    log_message(f"Bias (Intercept): {bias:.16f}", level="INFO")
+                    
+                    # 2. Pesos (Coefficients)
+                    weights = final_model.coef_[0]
+                                            
+                    # 3. String formato C++ Array (Facilita copiar e colar)
+                    cpp_weights = ", ".join([f"{w:.16f}" for w in weights])
+                    log_message(f"Weights: {{ {cpp_weights} }}", level="DEBUG")
+                    log_message(f"Features: {list(selected_cols)}", level="DEBUG")
 
                 # J. Learning Curve after final training (optional)
                 try:
                     if ExperimentConfig.RUN_LEARNING_CURVES_AT_END:
                         log_message(f"--- Generating learning curve after final training ---", level="stage")
                         subdir_final = f"{grouping_name}_{model_strategie_id}_{group_id_clean}_final"
-                    generate_learning_curve(
-                        X_train[selected_cols],
-                        y_train,
-                        subdir_final,
-                        model_type=current_model_type,
-                        train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES,
-                        best_params=best_params
-                    )
+                        generate_learning_curve(
+                            X_train[selected_cols],
+                            y_train,
+                            subdir_final,
+                            model_type=current_model_type,
+                            train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES,
+                            best_params=best_params
+                        )
                 except Exception as e:
                     log_message(f"Error generating end-of-pipeline learning curve: {e}", level="ERROR")
 
