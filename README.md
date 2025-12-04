@@ -1,4 +1,4 @@
-# 🚀 VVC ML Training Pipeline
+# 🚀 ML Training Pipeline
 
 This project implements a complete **Machine Learning pipeline** designed to automate the workflow and optimize decision-making processes. It features dynamic block grouping, recursive feature selection (RFE), hyperparameter optimization, and robust preprocessing.
 
@@ -19,7 +19,7 @@ This project implements a complete **Machine Learning pipeline** designed to aut
 
 The pipeline follows a modular structure executed via `main.py`:
 
-```mermaid
+```
 A[Load Data] --> B[Grouping Strategy]
 B --> C[Preprocessing & Balancing]
 C --> D[Feature Selection (RFE)]
