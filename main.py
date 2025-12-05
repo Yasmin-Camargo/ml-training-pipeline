@@ -5,7 +5,7 @@ from config.settings_decision_intra import DataConfig, ExperimentConfig, RESULTS
    
 import os
 import sys
-import numpy as np
+import shutil
 from src.utils import log_message
 from src.data import load_and_clean_data
 from src.grouping import apply_grouping_strategy
@@ -13,24 +13,30 @@ from config.model_strategies import MODEL_STRATEGIES
 from src.preprocessing import balance_group_data, split_and_sample, normalize_data, impute_data
 from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
-import src.DecisionTreeToCpp as to_cpp
 from src.visualization import generate_validation_curves, generate_learning_curve
 from src.evaluation import evaluate_and_save
 
-def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
+def export_model_to_cpp(model, feature_names, class_names, function_name, output_dir, model_type):
     try:
         os.makedirs(output_dir, exist_ok=True)
-        import shutil
-        import src.DecisionTreeToCpp as to_cpp
-        to_cpp.save_code(model, feature_names, class_names, function_name=function_name)
-        src_file = function_name + '.h'
-        dst_file = os.path.join(output_dir, src_file)
-        shutil.move(src_file, dst_file)
-        log_message(f"✓ Model exported to C++ at: {dst_file}", level="INFO")
+        if model_type == 'decision_tree':
+            import src.DecisionTreeToCpp as to_cpp
+            to_cpp.save_code(model, feature_names, class_names, function_name=function_name)
+            src_file = function_name + '.h'
+            dst_file = os.path.join(output_dir, src_file)
+            shutil.move(src_file, dst_file)
+            log_message(f"✓ Tree exported: {dst_file}", level="INFO")
+        elif model_type == 'logistic_regression':
+            import src.LogisticRegToCpp as lr_to_cpp
+            lr_to_cpp.save_code(model, feature_names, class_names, function_name=function_name, output_dir=output_dir)
+            log_message(f"✓ LR exported: {output_dir}/{function_name}.h", level="INFO")
+        else:
+            log_message(f"Unknown model type for C++ export: {model_type}", level="ERROR")
     except ImportError:
-        log_message(f"DecisionTreeToCpp module not found. C++ export skipped.", level="ERROR")
+        log_message(f"C++ export module not found. Export skipped.", level="ERROR")
     except Exception as e:
         log_message(f"Error exporting to C++: {e}", level="ERROR")
+
 
 def main():
     log_message("=== Starting VVC ML Pipeline ===", level="stage")
@@ -121,7 +127,7 @@ def main():
                         block_group=block_group,
                         current_model_type=current_model_type,
                         best_params=best_params,
-                        export_tree_callback=export_tree_to_cpp,
+                        export_model_callback=export_model_to_cpp,
                     )
                 except Exception as e:
                     log_message(f"Error during evaluation step: {e}", level="ERROR")

@@ -93,9 +93,9 @@ class ExperimentConfig:
     # Flags
     RUN_VALIDATION_CURVES = False
     RUN_LEARNING_CURVES = False
-    RUN_LEARNING_CURVES_AT_END = False
+    RUN_LEARNING_CURVES_AT_END = True
     LEARNING_CURVE_TRAIN_SIZES = [0.1, 0.25, 0.5, 0.75, 1.0]
-    EXPORT_CPP = False
+    EXPORT_CPP = True
     
     # Active Grouping Strategies
     # Options: 'area', 'max', 'orientation', 'aspect_ratio', 'all', 'single'

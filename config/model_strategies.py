@@ -79,6 +79,35 @@ def _process_dct8_dct8(df):
 
 
 # Scenario Definitions including dynamic classifier type
+MODEL_STRATEGIES = {
+    "logistic_regression": {
+        "description": "Logistic Regression",
+        "process_function": _process_raw,
+        "classifier_type": "logistic_regression"
+    },
+    "decision_tree": {
+        "description": "Decision Tree",
+        "process_function": _process_raw,
+        "classifier_type": "decision_tree"
+    }
+}
+
+"""
+MODEL_STRATEGIES = {
+    "A": {
+        "description": "Model A (Filter after DCT2)",
+        "process_function": _process_model_A,
+        "classifier_type": "decision_tree"
+    },
+    "B": {
+        "description": "Model B (DST7 vs Others)",
+        "process_function": _process_model_B,
+        "classifier_type": "decision_tree"
+    }
+}
+"""
+
+"""
 
 MODEL_STRATEGIES = {
     "dst7_dst7": {
@@ -99,35 +128,6 @@ MODEL_STRATEGIES = {
     "dct8_dct8": {
         "description": "Modelo DCT8_DCT8 (target=5 -> 10)",
         "process_function": _process_dct8_dct8,
-        "classifier_type": "decision_tree"
-    }
-}
-
-"""
-MODEL_STRATEGIES = {
-    "logistic_regression": {
-        "description": "Logistic Regression",
-        "process_function": _process_raw,
-        "classifier_type": "logistic_regression"
-    },
-    "decision_tree": {
-        "description": "Decision Tree",
-        "process_function": _process_raw,
-        "classifier_type": "decision_tree"
-    }
-}
-"""
-
-"""
-MODEL_STRATEGIES = {
-    "A": {
-        "description": "Model A (Filter after DCT2)",
-        "process_function": _process_model_A,
-        "classifier_type": "decision_tree"
-    },
-    "B": {
-        "description": "Model B (DST7 vs Others)",
-        "process_function": _process_model_B,
         "classifier_type": "decision_tree"
     }
 }

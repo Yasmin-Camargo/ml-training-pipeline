@@ -10,7 +10,7 @@ This project implements a complete **Machine Learning pipeline** designed to aut
 - **Dynamic Grouping Strategies:** Allows you to configure data partitions before training to create specialized models: such as block size, area, or orientation.
 - **Automated Feature Selection:** Utilizes `RFECV` (Recursive Feature Elimination with Cross-Validation) to identify the optimal feature subset per group.
 - **Hyperparameter Tuning:** Integrated `RandomizedSearchCV` for Decision Trees and Logistic Regression.
-- **C++ Export Engine:** Automatically converts Decision Trees trained `sklearn` models into optimized C++ header files (`.h`) with inline `if-else` logic.
+- **C++ Export Engine:** Automatically converts trained `sklearn` models into optimized C++ header files (`.h`) with inline `if-else` logic.
 - **Robust Preprocessing:** Imputation strategy and intelligent class balancing.
 
 ---
@@ -50,8 +50,8 @@ The pipeline splits the dataset into subsets to train specialized models.
 
 | Model Type          | Implementation Details                                |
 | ------------------- | ----------------------------------------------------- |
-| decision_tree       | Optimized for if/else rules. Supports C++ export.     |
-| logistic_regression | Linear classification. Exports coefficients and bias. |
+| decision_tree       | Optimized for if/else rules.                          |
+| logistic_regression | Linear classification.                                |
 
 ---
 

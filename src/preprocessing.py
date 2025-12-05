@@ -113,7 +113,7 @@ def impute_data(X_train, X_test, X_train_samp):
         log_message(">> Applying imputation to datasets (Config=True).", level="WARNING")
         return X_train_imp, X_test_imp, X_train_samp_imp
     else:
-        log_message(">> Skipping imputation application (Config=False). Using original data.", level="WARNING")
+        log_message(">> Skipping imputation application (Config=False). Using original data.", level="INFO")
         return X_train, X_test, X_train_samp
 
 
