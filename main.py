@@ -6,7 +6,6 @@ from config.settings_decision_intra import DataConfig, ExperimentConfig, RESULTS
 import os
 import sys
 import numpy as np
-from sklearn.metrics import classification_report
 from src.utils import log_message
 from src.data import load_and_clean_data
 from src.grouping import apply_grouping_strategy
@@ -16,6 +15,7 @@ from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
 import src.DecisionTreeToCpp as to_cpp
 from src.visualization import generate_validation_curves, generate_learning_curve
+from src.evaluation import evaluate_and_save
 
 def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
     try:
@@ -107,97 +107,24 @@ def main():
                 log_message(f"--- Final Training ---", level="stage")
                 final_model = train_final_model(X_train[selected_cols], y_train, current_model_type, best_params)
                 
-                # H. Evaluation
-                log_message(f"--- Evaluation ---", level="stage")
-                preds = final_model.predict(X_test[selected_cols])
-                report = classification_report(y_test, preds, zero_division=0)
-                log_message(f"Classification Report:\n{report}", level="INFO")
-                
-                # Get probabilities and calculate confidence per sample
-                if hasattr(final_model, "predict_proba"):
-                    probas = final_model.predict_proba(X_test[selected_cols])
-                    confidence_per_sample = np.max(probas, axis=1)
-                    
-                    # 2. Overall Mean Confidence
-                    mean_overall = np.mean(confidence_per_sample)
-                    log_message(f">>> Group {block_group} - Mean Confidence (Overall): {mean_overall*100:.2f}%", level="INFO")
-                    
-                    # 3. Mean Confidence by Target Class (Generic)
-                    target_name = DataConfig.TARGET_COLUMN
-                    unique_classes = sorted(y_test.unique())
-                    
-                    for cls in unique_classes:
-                        # Filter rows where the actual target
-                        mask = (y_test == cls)
-                        if mask.sum() > 0:
-                            mean_cls = np.mean(confidence_per_sample[mask])
-                            log_message(f"    - {target_name} = {cls}: {mean_cls*100:.2f}% mean confidence", level="INFO")
-                                                                
-                # Save Report
-                os.makedirs(RESULTS_DIR, exist_ok=True)
-                report_file = RESULTS_DIR / grouping_name / f"Result_{model_strategie_id}_{block_group.replace('×', 'x')}.txt"
-                os.makedirs(os.path.dirname(report_file), exist_ok=True)
-                with open(report_file, "w") as f:
-                    f.write(report)
-                 
-                # Export Logistic Regression parameters   
-                if current_model_type == 'logistic_regression':
-                    log_message(f"--- Logistic Regression Parameters (Save for C++) ---", level="INFO")
-                    log_message(f"Group: {block_group}", level="INFO")
-                    
-                    # 1. Bias (Intercept)
-                    # Sklearn retorna array, pegamos o primeiro valor para classificação binária
-                    bias = final_model.intercept_[0]
-                    log_message(f"Bias (Intercept): {bias:.16f}", level="INFO")
-                    
-                    # 2. Pesos (Coefficients)
-                    weights = final_model.coef_[0]
-                                            
-                    # 3. String formato C++ Array (Facilita copiar e colar)
-                    cpp_weights = ", ".join([f"{w:.16f}" for w in weights])
-                    log_message(f"Weights: {{ {cpp_weights} }}", level="DEBUG")
-                    log_message(f"Features: {list(selected_cols)}", level="DEBUG")
-
-                # J. Learning Curve after final training (optional)
+                # H. Evaluation (delegated to src.evaluation.evaluate_and_save)
                 try:
-                    if ExperimentConfig.RUN_LEARNING_CURVES_AT_END:
-                        log_message(f"--- Generating learning curve after final training ---", level="stage")
-                        subdir_final = f"{grouping_name}_{model_strategie_id}_{group_id_clean}_final"
-                        generate_learning_curve(
-                            X_train[selected_cols],
-                            y_train,
-                            subdir_final,
-                            model_type=current_model_type,
-                            train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES,
-                            best_params=best_params
-                        )
+                    evaluate_and_save(
+                        final_model=final_model,
+                        X_test=X_test,
+                        y_test=y_test,
+                        X_train=X_train,
+                        y_train=y_train,
+                        selected_cols=selected_cols,
+                        grouping_name=grouping_name,
+                        model_strategie_id=model_strategie_id,
+                        block_group=block_group,
+                        current_model_type=current_model_type,
+                        best_params=best_params,
+                        export_tree_callback=export_tree_to_cpp,
+                    )
                 except Exception as e:
-                    log_message(f"Error generating end-of-pipeline learning curve: {e}", level="ERROR")
-
-                # I. Export to C++ (Only if it's a decision tree)
-                if ExperimentConfig.EXPORT_CPP and current_model_type == 'decision_tree':
-                    log_message(f"--- Export to C++ ---", level="stage")
-                    try:
-                        export_tree_to_cpp(
-                            final_model,
-                            list(selected_cols),
-                            sorted(y_train.unique()),
-                            f"tree_{grouping_name}_m{model_strategie_id}_{block_group.replace('x', '_')}",
-                            f'cpp_exports/{grouping_name}'
-                        )
-                    except Exception as e:
-                        log_message(f"Error exporting to C++ ({grouping_name}) Model {model_strategie_id}, Group {block_group}: {e}", level="ERROR")
+                    log_message(f"Error during evaluation step: {e}", level="ERROR")
 
 if __name__ == "__main__":
     main()
-
-# Function to export tree to C++
-def export_tree_to_cpp(model, feature_names, class_names, function_name, output_dir):
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-        to_cpp.save_code(model, feature_names, class_names, function_name=function_name, output_dir=output_dir)
-        log_message(f"✓ Model exported to C++ at: {output_dir}", level="INFO")
-    except ImportError:
-        log_message(f"DecisionTreeToCpp module not found. C++ export skipped.", level="ERROR")
-    except Exception as e:
-        log_message(f"Error exporting to C++: {e}", level="ERROR")
