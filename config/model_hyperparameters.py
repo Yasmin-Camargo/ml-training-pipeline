@@ -21,12 +21,21 @@ BASE_MODELS = {
 
 # Hyperparameter search spaces (Random Search)
 SEARCH_SPACES = {
+'''
     'decision_tree': {
         'criterion': ['gini', 'entropy', 'log_loss'],
         'min_samples_split': list(range(100, 400, 10)),
         'min_samples_leaf': list(range(20, 100, 5)),
         'max_leaf_nodes': list(range(50, 300, 10)),
         'max_depth': list(range(5, 20)),
+    },
+'''
+    'decision_tree': {
+        'criterion': ['gini', 'entropy', 'log_loss'],
+        'min_samples_split': list(range(50, 400, 10)),
+        'min_samples_leaf': list(range(20, 150, 10)),
+        'max_leaf_nodes': list(range(250, 500, 15)),
+        'max_depth': list(range(5, 30)),
     },
     'logistic_regression': {
         'solver': ['lbfgs'],
