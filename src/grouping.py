@@ -3,8 +3,8 @@ from .utils import log_message
 # --- Grouping Logic Functions ---
 
 def determine_size_group(row):
-    w = row["FrameWidth"]
-    h = row["FrameHeight"]
+    w = row["Width"]
+    h = row["Height"]
     max_dim = max(w, h)
     
     if max_dim == 128: return "128x128"
@@ -15,8 +15,8 @@ def determine_size_group(row):
     else: return "4x4"
 
 def determine_area_group(row):
-    w = row["FrameWidth"]
-    h = row["FrameHeight"]
+    w = row["Width"]
+    h = row["Height"]
     area = min(w, h) * max(w, h)
     
     area_to_group = {
@@ -27,20 +27,20 @@ def determine_area_group(row):
     return area_to_group.get(area, "other")
 
 def determine_all_group(row):
-    w = row["FrameWidth"]
-    h = row["FrameHeight"]
+    w = row["Width"]
+    h = row["Height"]
     return f"{w}x{h}"
 
 def determine_orientation_group(row):
-    w = row["FrameWidth"]
-    h = row["FrameHeight"]
+    w = row["Width"]
+    h = row["Height"]
     if w == h: return "Square"
     elif w > h: return "Horizontal"
     else: return "Vertical"
 
 def determine_aspect_ratio_group(row):
-    w = row["FrameWidth"]
-    h = row["FrameHeight"]
+    w = row["Width"]
+    h = row["Height"]
     ratio = max(w, h) / min(w, h)
 
     if abs(ratio - 1) < 0.01: return "1:1"
