@@ -70,7 +70,7 @@ class ExperimentConfig:
     RANDOM_STATE = 42
     N_JOBS = -1
     TEST_SIZE = 0.25
-    MAX_SAMPLES_PER_CLASS = 100000
+    MAX_SAMPLES_PER_CLASS = 200000
     NORMALIZE_DATA = True
     
     # Handling Missing Values

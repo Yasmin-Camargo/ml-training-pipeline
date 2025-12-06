@@ -23,15 +23,15 @@ BASE_MODELS = {
 SEARCH_SPACES = {
     'decision_tree': {
         'criterion': ['gini', 'entropy', 'log_loss'],
-        'min_samples_split': list(range(2, 100, 10)),
-        'min_samples_leaf': list(range(2, 200, 10)),
-        'max_leaf_nodes': list(range(10, 500, 25)),
-        'max_depth': list(range(1, 30)),
+        'min_samples_split': list(range(100, 400, 10)),
+        'min_samples_leaf': list(range(20, 100, 5)),
+        'max_leaf_nodes': list(range(50, 300, 10)),
+        'max_depth': list(range(5, 20)),
     },
     'logistic_regression': {
         'solver': ['lbfgs'],
         'penalty': ['l2'],
-        'C': [0.01, 0.1, 1, 10, 100],
+        'C': [1, 5, 10, 30, 50, 80, 100, 125, 150, 200, 500],
         'max_iter': [1000],
     }
 }
