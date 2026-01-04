@@ -64,6 +64,8 @@ def evaluate_and_save(
         except Exception as e:
             log_message(f"Error computing probabilities/confidence: {e}", level="ERROR")
 
+    block_group = str(block_group)
+    
     # 4. Save textual report to file
     try:
         os.makedirs(RESULTS_DIR, exist_ok=True)

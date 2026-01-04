@@ -1,4 +1,5 @@
 import time
+import numpy as np
 from sklearn.feature_selection import RFECV
 from config.settings import ExperimentConfig
 from config.model_hyperparameters import BASE_MODELS
@@ -27,7 +28,26 @@ def run_rfe(X, y, model_type):
     rfecv.fit(X, y)
     
     selected_features = X.columns[rfecv.support_].tolist()
+    
+    final_estimator = rfecv.estimator_
+    importances = None
+
+    if hasattr(final_estimator, 'feature_importances_'):
+        importances = final_estimator.feature_importances_
+    elif hasattr(final_estimator, 'coef_'):
+        importances = np.ravel(final_estimator.coef_)
+
     log_message(f"RFECV finished in {time.time() - start_time:.2f}s. Optimal number of features: {rfecv.n_features_}", level="INFO")
-    log_message(f"Selected Features: {selected_features}", level="DEBUG")
+    log_message(f"Selected Features List: {selected_features}", level="DEBUG")
+
+    if importances is not None:
+        feature_score_pairs = list(zip(selected_features, importances))
+        feature_score_pairs.sort(key=lambda x: abs(x[1]), reverse=True)
+        
+        log_message("=== Feature Importances (RFECV Final Model) ===", level="INFO")
+        for feature_name, score in feature_score_pairs:
+            log_message(f"Feature: {feature_name:<20} | Importance: {score:.6f}", level="INFO")
+    else:
+        log_message("Could not extract feature importance/coefficients from this estimator.", level="WARNING")
     
     return selected_features

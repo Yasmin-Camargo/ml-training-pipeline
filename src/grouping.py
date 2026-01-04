@@ -54,6 +54,14 @@ def determine_aspect_ratio_group(row):
 def determine_single_group(row):
     return "All_Blocks"
 
+def determine_frame_level_group(row):
+    level = row["FrameLevel"]
+    
+    if level == 0:
+        return None
+        
+    return int(level)
+
 # --- Strategy Map ---
 GROUPING_STRATEGIES = {
     'area': determine_area_group,
@@ -61,7 +69,8 @@ GROUPING_STRATEGIES = {
     'orientation': determine_orientation_group,
     'aspect_ratio': determine_aspect_ratio_group,
     'all': determine_all_group,
-    'single': determine_single_group
+    'single': determine_single_group,
+    'frame_level': determine_frame_level_group
 }
 
 def apply_grouping_strategy(df, strategy_name):
@@ -71,6 +80,14 @@ def apply_grouping_strategy(df, strategy_name):
     log_message(f"Applying grouping strategy: {strategy_name}", level="INFO")
     
     df_out = df.copy()
+    
     df_out["BlockGroup"] = df_out.apply(GROUPING_STRATEGIES[strategy_name], axis=1)
+    
+    before_drop = len(df_out)
+    df_out = df_out.dropna(subset=["BlockGroup"])
+    after_drop = len(df_out)
+    
+    if before_drop > after_drop:
+        log_message(f"Strategy '{strategy_name}' filtered out {before_drop - after_drop} rows (e.g. FrameLevel 0).", level="WARNING")
     
     return df_out, sorted(df_out["BlockGroup"].unique())

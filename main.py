@@ -70,7 +70,7 @@ def main():
 
             # 4. Iterate over Block Groups (e.g., 64x64, 32x32)
             for block_group in groups:
-                group_id_clean = block_group.replace(":", "-").replace("×", "x")
+                group_id_clean = str(block_group).replace(":", "-").replace("×", "x")
                 log_message(f"--- Block Group: {block_group} ---", level="stage")
                 log_message(f"\n>>> Processing Group: {block_group} | Strategy: {grouping_name} | Model Type: {current_model_type}", level="INFO")
                 
