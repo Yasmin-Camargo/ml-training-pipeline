@@ -1,5 +1,7 @@
 import os
 import logging
+import random
+import numpy as np
 import colorlog
 from logging.handlers import RotatingFileHandler
 from config.settings import LOG_FILE
@@ -59,6 +61,13 @@ def _setup_logger():
     return logger
 
 _logger = _setup_logger()
+
+
+def set_global_seed(seed: int):
+    """Set global seeds used by Python and NumPy for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    log_message(f"Global seed configured: {seed}", level="INFO")
 
 
 def log_message(message: str, level: str = 'info'):

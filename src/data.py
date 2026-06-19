@@ -10,6 +10,14 @@ def load_and_clean_data(filepath):
         raise FileNotFoundError(f"File not found: {filepath}")
 
     df = pd.read_csv(filepath, sep=DataConfig.CSV_SEPARATOR, low_memory=False)
+    
+    # Globally remove lines with FrameLevel 0 (Intra)
+    if 'FrameLevel' in df.columns:
+        initial_len = len(df)
+        df = df[df['FrameLevel'] != 0]
+        removed = initial_len - len(df)
+        if removed > 0:
+            log_message(f"Global Filter: Removed {removed} rows with FrameLevel == 0.", level="WARNING")
 
     # 0. Exclude specific rows based on config
     excluded_cfg = getattr(DataConfig, 'EXCLUDED_LINES', None)
@@ -23,10 +31,24 @@ def load_and_clean_data(filepath):
             if removed_count > 0:
                 log_message(f"Filtered out {removed_count} rows from excluded {col_name}: {values}", level="WARNING")
 
-    # 1. Remove unwanted columns
+    # 1. Remove unwanted columns, but keep grouping column for grouped split later.
     if DataConfig.REMOVE_COLUMNS:
-        df = df.drop(columns=DataConfig.REMOVE_COLUMNS, errors='ignore')
-        log_message(f"Removed columns: {DataConfig.REMOVE_COLUMNS}", level="INFO")
+        group_col = getattr(DataConfig, 'GROUP_COLUMN', None)
+        resolution_cols = getattr(DataConfig, 'RESOLUTION_COLUMNS', None)
+        protected_cols = set()
+        if group_col:
+            protected_cols.add(group_col)
+            if isinstance(resolution_cols, (list, tuple)):
+                protected_cols.update(resolution_cols)
+
+        cols_to_drop = [c for c in DataConfig.REMOVE_COLUMNS if c not in protected_cols]
+        df = df.drop(columns=cols_to_drop, errors='ignore')
+        log_message(f"Removed columns: {cols_to_drop}", level="INFO")
+        if protected_cols:
+            log_message(
+                f"Preserved protected columns for split: {sorted([c for c in protected_cols if c in df.columns])}",
+                level="INFO"
+            )
 
     # 2. Handle null values
     if DataConfig.TARGET_COLUMN in df.columns:

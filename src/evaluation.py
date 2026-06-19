@@ -17,6 +17,7 @@ def evaluate_and_save(
     block_group,
     current_model_type,
     best_params=None,
+    groups_train=None,
     export_model_callback=None,
 ):
     """
@@ -110,6 +111,7 @@ def evaluate_and_save(
                 model_type=current_model_type,
                 train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES,
                 best_params=best_params,
+                groups=groups_train,
             )
     except Exception as e:
         log_message(f"Error generating end-of-pipeline learning curve: {e}", level="ERROR")

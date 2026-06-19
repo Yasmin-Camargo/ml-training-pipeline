@@ -80,6 +80,15 @@ def _process_dct8_dct8(df):
 
 # Scenario Definitions including dynamic classifier type
 MODEL_STRATEGIES = {
+    "decision_tree": {
+        "description": "Decision Tree",
+        "process_function": _process_raw,
+        "classifier_type": "decision_tree"
+    }
+}
+
+"""
+MODEL_STRATEGIES = {
     "logistic_regression": {
         "description": "Logistic Regression",
         "process_function": _process_raw,
@@ -91,6 +100,8 @@ MODEL_STRATEGIES = {
         "classifier_type": "decision_tree"
     }
 }
+"""
+
 
 """
 MODEL_STRATEGIES = {

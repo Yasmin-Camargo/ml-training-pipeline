@@ -6,6 +6,239 @@ from sklearn.impute import SimpleImputer
 from config.settings import DataConfig, ExperimentConfig
 from .utils import log_message
 
+
+def _normalize_group_col(group_col):
+    if group_col is None:
+        return None
+    if isinstance(group_col, str) and not group_col.strip():
+        return None
+    return group_col
+
+
+def _random_group_split(df, target_col, group_col, test_size=0.25, random_state=42):
+    """Split by unique groups without resolution stratification."""
+    unique_groups = df[group_col].drop_duplicates().sort_values(kind='stable')
+    train_groups, test_groups = train_test_split(
+        unique_groups,
+        test_size=test_size,
+        random_state=random_state,
+    )
+    train_df = df[df[group_col].isin(train_groups)].copy()
+    test_df = df[df[group_col].isin(test_groups)].copy()
+
+    X_train = train_df.drop(columns=[target_col])
+    y_train = train_df[target_col]
+    X_test = test_df.drop(columns=[target_col])
+    y_test = test_df[target_col]
+    return X_train, X_test, y_train, y_test
+
+
+def split_by_video_resolution(
+    df,
+    target_col,
+    test_size=0.25,
+    random_state=42,
+    group_col=None,
+    width_col='FrameWidth',
+    height_col='FrameHeight'
+):
+    """
+    Split dataset keeping groups isolated and stratifying groups by resolution.
+    """
+    if group_col is None:
+        group_col = getattr(DataConfig, 'GROUP_COLUMN', 'VideoName')
+    group_col = _normalize_group_col(group_col)
+    if group_col is None:
+        raise ValueError("group_col cannot be empty for split_by_video_resolution.")
+
+    required_cols = [group_col, width_col, height_col]
+    missing_cols = [c for c in required_cols if c not in df.columns]
+    if missing_cols:
+        raise ValueError(
+            f"Columns required for stratified group split are missing: {missing_cols}"
+        )
+
+    # One row per group for leakage-safe split over groups only.
+    video_info = df[[group_col, width_col, height_col]].drop_duplicates().copy()
+    video_info['Resolution'] = (video_info[width_col] * video_info[height_col]).astype(str)
+
+    # If a group appears with multiple resolutions, keep first to avoid duplicated
+    # group ids in split candidates and log the condition.
+    resolution_counts = video_info.groupby(group_col)['Resolution'].nunique()
+    ambiguous_groups = resolution_counts[resolution_counts > 1]
+    if not ambiguous_groups.empty:
+        log_message(
+            f"[SPLIT] Found {len(ambiguous_groups)} groups with multiple resolutions. "
+            f"Using first observed resolution per group for stratification.",
+            level="WARNING"
+        )
+
+    group_info = video_info.drop_duplicates(subset=[group_col], keep='first').copy()
+    group_info = group_info.sort_values(by=[group_col], kind='stable')
+
+    try:
+        train_groups, test_groups = train_test_split(
+            group_info[group_col],
+            stratify=group_info['Resolution'],
+            test_size=test_size,
+            random_state=random_state
+        )
+    except ValueError as e:
+        log_message(
+            f"[SPLIT] Stratified split failed ({e}). Falling back to random group split.",
+            level="WARNING"
+        )
+        train_groups, test_groups = train_test_split(
+            group_info[group_col],
+            test_size=test_size,
+            random_state=random_state
+        )
+
+    train_df = df[df[group_col].isin(train_groups)].copy()
+    test_df = df[df[group_col].isin(test_groups)].copy()
+
+    log_message(f"[SPLIT] Groups in Train ({group_col}): {len(train_groups)}", level="INFO")
+    log_message(f"[SPLIT] Groups in Test ({group_col}): {len(test_groups)}", level="INFO")
+
+    try:
+        train_res = train_df.groupby([width_col, height_col])[group_col].nunique().to_dict()
+        test_res = test_df.groupby([width_col, height_col])[group_col].nunique().to_dict()
+        log_message(f"[SPLIT] Train resolution distribution (group counts): {train_res}", level="INFO")
+        log_message(f"[SPLIT] Test resolution distribution (group counts): {test_res}", level="INFO")
+    except Exception:
+        # Non-blocking logging path.
+        pass
+
+    X_train = train_df.drop(columns=[target_col])
+    y_train = train_df[target_col]
+
+    X_test = test_df.drop(columns=[target_col])
+    y_test = test_df[target_col]
+
+    return X_train, X_test, y_train, y_test
+
+
+def split_dataset_configurable(df, target_col, test_size=0.25, random_state=42, group_col=None):
+    """
+    Configurable dataset split.
+    - Group mode (group_col valid): split by group, stratified by resolution.
+    - Baseline mode (group_col empty/None): random row split.
+    Returns groups_train for downstream CV (or None in baseline mode).
+    """
+    group_col = _normalize_group_col(group_col)
+
+    if group_col and group_col in df.columns:
+        log_message(f"[SPLIT] Group mode active using '{group_col}'.", level="INFO")
+        resolution_cols = getattr(DataConfig, 'RESOLUTION_COLUMNS', None)
+        use_resolution_stratification = isinstance(resolution_cols, (list, tuple)) and len(resolution_cols) >= 2
+
+        if use_resolution_stratification:
+            width_col = resolution_cols[0]
+            height_col = resolution_cols[1]
+            try:
+                X_train, X_test, y_train, y_test = split_by_video_resolution(
+                    df=df,
+                    target_col=target_col,
+                    test_size=test_size,
+                    random_state=random_state,
+                    group_col=group_col,
+                    width_col=width_col,
+                    height_col=height_col,
+                )
+            except ValueError as e:
+                log_message(
+                    f"[SPLIT] Resolution-stratified grouped split unavailable ({e}). "
+                    f"Falling back to random split across groups.",
+                    level="WARNING"
+                )
+                X_train, X_test, y_train, y_test = _random_group_split(
+                    df=df,
+                    target_col=target_col,
+                    group_col=group_col,
+                    test_size=test_size,
+                    random_state=random_state,
+                )
+        else:
+            log_message(
+                "[SPLIT] RESOLUTION_COLUMNS not configured. Using random split across groups.",
+                level="INFO"
+            )
+            X_train, X_test, y_train, y_test = _random_group_split(
+                df=df,
+                target_col=target_col,
+                group_col=group_col,
+                test_size=test_size,
+                random_state=random_state,
+            )
+
+        groups_train = X_train[group_col].values if group_col in X_train.columns else None
+    else:
+        if group_col:
+            log_message(
+                f"[SPLIT] GROUP_COLUMN='{group_col}' not found. Falling back to baseline random split.",
+                level="WARNING"
+            )
+        else:
+            log_message("[SPLIT] Baseline mode active (GROUP_COLUMN empty).", level="WARNING")
+
+        train_df, test_df = train_test_split(
+            df,
+            test_size=test_size,
+            random_state=random_state,
+        )
+
+        X_train = train_df.drop(columns=[target_col])
+        y_train = train_df[target_col]
+        X_test = test_df.drop(columns=[target_col])
+        y_test = test_df[target_col]
+        groups_train = None
+
+    return X_train, X_test, y_train, y_test, groups_train
+
+
+def split_by_video_group(df, target_col, test_size=0.25, random_state=42, group_col=None):
+    """Backward compatible alias for grouped split.
+
+    Prefer split_dataset_configurable or split_by_video_resolution.
+    """
+    return split_by_video_resolution(
+        df=df,
+        target_col=target_col,
+        test_size=test_size,
+        random_state=random_state,
+        group_col=group_col,
+    )
+
+
+def sample_training_data(X_train, y_train, groups_train=None):
+    """Create a stratified per-class sample from training data for tuning/RFECV."""
+    train_data = pd.concat([X_train, y_train], axis=1)
+
+    train_sampled = pd.concat([
+        resample(
+            g,
+            replace=False,
+            n_samples=min(len(g), ExperimentConfig.MAX_SAMPLES_PER_CLASS),
+            random_state=ExperimentConfig.RANDOM_STATE
+        )
+        for _, g in train_data.groupby(DataConfig.TARGET_COLUMN)
+    ])
+
+    train_sampled = train_sampled.sort_index(kind='stable')
+    X_train_samp = train_sampled.drop(columns=[DataConfig.TARGET_COLUMN])
+    y_train_samp = train_sampled[DataConfig.TARGET_COLUMN]
+
+    if groups_train is None:
+        groups_train_samp = None
+    else:
+        if isinstance(groups_train, pd.Series):
+            groups_series = groups_train
+        else:
+            groups_series = pd.Series(groups_train, index=X_train.index)
+        groups_train_samp = groups_series.loc[X_train_samp.index].values
+
+    return X_train_samp, y_train_samp, groups_train_samp
+
 def balance_group_data(df_group):
     """Balances data within a specific block group."""
     target_col = DataConfig.TARGET_COLUMN

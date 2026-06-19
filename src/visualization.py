@@ -3,11 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.model_selection import validation_curve
 from sklearn.model_selection import learning_curve
+from sklearn.model_selection import GroupKFold, KFold
 from config.settings import ExperimentConfig, RESULTS_DIR
 from config.model_hyperparameters import VAL_CURVE_PARAMS, BASE_MODELS
 from .utils import log_message
 
-def generate_validation_curves(X, y, output_subdir, model_type):
+def generate_validation_curves(X, y, output_subdir, model_type, groups=None):
     log_message(f"Generating validation curves for {output_subdir} (model: {model_type})...")
 
     # Instantiate estimator from BASE_MODELS
@@ -32,6 +33,15 @@ def generate_validation_curves(X, y, output_subdir, model_type):
         log_message(f"No numeric parameter ranges found for model '{model_type}'. Skipping validation curves.")
         return
 
+    if groups is not None:
+        cv_strategy = GroupKFold(n_splits=ExperimentConfig.CV_FOLDS)
+    else:
+        cv_strategy = KFold(
+            n_splits=ExperimentConfig.CV_FOLDS,
+            shuffle=True,
+            random_state=ExperimentConfig.RANDOM_STATE,
+        )
+
     for param_name, param_range in param_map.items():
         try:
             train_scores, test_scores = validation_curve(
@@ -39,7 +49,8 @@ def generate_validation_curves(X, y, output_subdir, model_type):
                 param_name=param_name,
                 param_range=param_range,
                 scoring=ExperimentConfig.SCORING,
-                cv=ExperimentConfig.CV_FOLDS,
+                cv=cv_strategy,
+                groups=groups,
                 n_jobs=ExperimentConfig.N_JOBS
             )
         except Exception as e:
@@ -63,7 +74,7 @@ def generate_validation_curves(X, y, output_subdir, model_type):
 
 
 
-def generate_learning_curve(X, y, output_subdir, model_type, train_sizes=np.linspace(0.1, 1.0, 10), best_params=None):
+def generate_learning_curve(X, y, output_subdir, model_type, train_sizes=np.linspace(0.1, 1.0, 10), best_params=None, groups=None):
     """
     Generate learning curve plots for a given model and dataset.
 
@@ -92,13 +103,23 @@ def generate_learning_curve(X, y, output_subdir, model_type, train_sizes=np.lins
     save_path = RESULTS_DIR / "learning_curves" / output_subdir
     os.makedirs(save_path, exist_ok=True)
 
+    if groups is not None:
+        cv_strategy = GroupKFold(n_splits=ExperimentConfig.CV_FOLDS)
+    else:
+        cv_strategy = KFold(
+            n_splits=ExperimentConfig.CV_FOLDS,
+            shuffle=True,
+            random_state=ExperimentConfig.RANDOM_STATE,
+        )
+
     try:
         train_sizes_abs, train_scores, test_scores = learning_curve(
             estimator=clf,
             X=X,
             y=y,
             train_sizes=train_sizes,
-            cv=ExperimentConfig.CV_FOLDS,
+            cv=cv_strategy,
+            groups=groups,
             scoring=ExperimentConfig.SCORING,
             n_jobs=ExperimentConfig.N_JOBS,
             shuffle=True,

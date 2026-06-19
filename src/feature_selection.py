@@ -1,11 +1,12 @@
 import time
 import numpy as np
 from sklearn.feature_selection import RFECV
+from sklearn.model_selection import GroupKFold, KFold
 from config.settings import ExperimentConfig
 from config.model_hyperparameters import BASE_MODELS
 from .utils import log_message
 
-def run_rfe(X, y, model_type):
+def run_rfe(X, y, model_type, groups=None):
     """Runs Recursive Feature Elimination."""
     if not ExperimentConfig.RFE_ENABLED:
         return X.columns.tolist()
@@ -16,16 +17,28 @@ def run_rfe(X, y, model_type):
     model_conf = BASE_MODELS[model_type]
     estimator = model_conf['estimator'](**model_conf['params'])
     
+    if groups is not None:
+        cv_strategy = GroupKFold(n_splits=ExperimentConfig.CV_FOLDS)
+    else:
+        cv_strategy = KFold(
+            n_splits=ExperimentConfig.CV_FOLDS,
+            shuffle=True,
+            random_state=ExperimentConfig.RANDOM_STATE,
+        )
+
     rfecv = RFECV(
         estimator=estimator,
         step=ExperimentConfig.RFE_STEP,
-        cv=ExperimentConfig.CV_FOLDS,
+        cv=cv_strategy,
         scoring=ExperimentConfig.SCORING,
         min_features_to_select=ExperimentConfig.RFE_MIN_FEATURES,
         n_jobs=ExperimentConfig.N_JOBS
     )
     
-    rfecv.fit(X, y)
+    if groups is not None:
+        rfecv.fit(X, y, groups=groups)
+    else:
+        rfecv.fit(X, y)
     
     selected_features = X.columns[rfecv.support_].tolist()
     

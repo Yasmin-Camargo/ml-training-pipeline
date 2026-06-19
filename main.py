@@ -6,11 +6,11 @@ from config.settings_decision_intra import DataConfig, ExperimentConfig, RESULTS
 import os
 import sys
 import shutil
-from src.utils import log_message
+from src.utils import log_message, set_global_seed
 from src.data import load_and_clean_data
 from src.grouping import apply_grouping_strategy
 from config.model_strategies import MODEL_STRATEGIES
-from src.preprocessing import balance_group_data, split_and_sample, normalize_data, impute_data
+from src.preprocessing import balance_group_data, split_dataset_configurable, sample_training_data, normalize_data, impute_data
 from src.feature_selection import run_rfe
 from src.training import tune_hyperparameters, train_final_model
 from src.visualization import generate_validation_curves, generate_learning_curve
@@ -39,6 +39,7 @@ def export_model_to_cpp(model, feature_names, class_names, function_name, output
 
 
 def main():
+    set_global_seed(ExperimentConfig.RANDOM_STATE)
     log_message("=== Starting VVC ML Pipeline ===", level="stage")
     
     # 1. Load Data
@@ -81,14 +82,32 @@ def main():
                 
                 # B. Balance Data
                 df_balanced = balance_group_data(df_block)
+
+                group_col = getattr(DataConfig, 'GROUP_COLUMN', None)
                 
-                # C. Split Train/Test and Sample for Tuning
-                X_train, X_test, y_train, y_test, X_train_samp, y_train_samp = split_and_sample(df_balanced)
+                # C. Configurable split (group-safe when enabled; baseline random when disabled)
+                X_train, X_test, y_train, y_test, groups_train = split_dataset_configurable(
+                    df_balanced,
+                    target_col=DataConfig.TARGET_COLUMN,
+                    test_size=ExperimentConfig.TEST_SIZE,
+                    random_state=ExperimentConfig.RANDOM_STATE,
+                    group_col=group_col,
+                )
+
+                # C.2 Remove columns not used by the model
+                drop_cols = list(DataConfig.REMOVE_COLUMNS) + ['BlockGroup']
+                if group_col:
+                    drop_cols.append(group_col)
+                X_train = X_train.drop(columns=drop_cols, errors='ignore')
+                X_test = X_test.drop(columns=drop_cols, errors='ignore')
+
+                # C.3 Build sampled train subset (and aligned groups) for RFECV/tuning
+                X_train_samp, y_train_samp, groups_train_samp = sample_training_data(X_train, y_train, groups_train)
                 
-                # C.0 Impute missing values if any
+                # C.4 Impute missing values if any
                 X_train, X_test, X_train_samp = impute_data(X_train, X_test, X_train_samp)     
                                
-                # C.1 Normalize Data if configured
+                # C.5 Normalize Data if configured
                 if ExperimentConfig.NORMALIZE_DATA:
                     X_train, X_test, X_train_samp = normalize_data(X_train, X_test, X_train_samp)
                 
@@ -96,18 +115,36 @@ def main():
                 if ExperimentConfig.RUN_VALIDATION_CURVES or ExperimentConfig.RUN_LEARNING_CURVES:
                     subdir = f"{grouping_name}_{model_strategie_id}_{group_id_clean}"
                     if ExperimentConfig.RUN_VALIDATION_CURVES:
-                        generate_validation_curves(X_train_samp, y_train_samp, subdir, model_type=current_model_type)
+                        generate_validation_curves(
+                            X_train_samp,
+                            y_train_samp,
+                            subdir,
+                            model_type=current_model_type,
+                            groups=groups_train_samp,
+                        )
                     if ExperimentConfig.RUN_LEARNING_CURVES:
-                        generate_learning_curve(X_train_samp, y_train_samp, subdir, model_type=current_model_type, train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES)
+                        generate_learning_curve(
+                            X_train_samp,
+                            y_train_samp,
+                            subdir,
+                            model_type=current_model_type,
+                            train_sizes=ExperimentConfig.LEARNING_CURVE_TRAIN_SIZES,
+                            groups=groups_train_samp,
+                        )
                     continue
 
                 # E. Feature Selection (RFE) using dynamic model type
                 log_message(f"--- Feature Selection (RFE) ---", level="stage")
-                selected_cols = run_rfe(X_train_samp, y_train_samp, current_model_type)
+                selected_cols = run_rfe(X_train_samp, y_train_samp, current_model_type, groups=groups_train_samp)
                 
                 # F. Hyperparameter Tuning (Random Search)
                 log_message(f"--- Hyperparameter Tuning ---", level="stage")
-                best_params = tune_hyperparameters(X_train_samp[selected_cols], y_train_samp, current_model_type)
+                best_params = tune_hyperparameters(
+                    X_train_samp[selected_cols],
+                    y_train_samp,
+                    current_model_type,
+                    groups=groups_train_samp,
+                )
                 
                 # G. Final Training (Full Train set, Selected Features)
                 log_message(f"--- Final Training ---", level="stage")
@@ -127,6 +164,7 @@ def main():
                         block_group=block_group,
                         current_model_type=current_model_type,
                         best_params=best_params,
+                        groups_train=groups_train,
                         export_model_callback=export_model_to_cpp,
                     )
                 except Exception as e:

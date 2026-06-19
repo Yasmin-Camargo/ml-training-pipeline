@@ -13,6 +13,9 @@ class DataConfig:
     FILE_PATH = DATA_DIR / "features.csv"
     CSV_SEPARATOR = ','
     TARGET_COLUMN = 'MTSChosen'
+    # 'VideoName' enables leakage-safe grouped pipeline; use '' or None for baseline random mode.
+    GROUP_COLUMN = 'VideoName'
+    RESOLUTION_COLUMNS = ['FrameWidth', 'FrameHeight']
 
     REMOVE_COLUMNS = ['frame', 'x', 'y', 'video', 'VideoName']
     

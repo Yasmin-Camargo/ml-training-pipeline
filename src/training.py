@@ -1,10 +1,10 @@
 import time
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import RandomizedSearchCV, GroupKFold, KFold
 from config.settings import ExperimentConfig
 from config.model_hyperparameters import BASE_MODELS, SEARCH_SPACES
 from .utils import log_message
 
-def tune_hyperparameters(X, y, model_type):
+def tune_hyperparameters(X, y, model_type, groups=None):
     """Executes RandomizedSearchCV to find best params."""
     log_message(f"Starting Randomized Hyperparameter Search for {model_type}...", level="INFO")
     start_time = time.time()
@@ -15,17 +15,29 @@ def tune_hyperparameters(X, y, model_type):
     if model_type not in SEARCH_SPACES:
         raise ValueError(f"Search space not defined for {model_type}")
 
+    if groups is not None:
+        cv_strategy = GroupKFold(n_splits=ExperimentConfig.CV_FOLDS)
+    else:
+        cv_strategy = KFold(
+            n_splits=ExperimentConfig.CV_FOLDS,
+            shuffle=True,
+            random_state=ExperimentConfig.RANDOM_STATE,
+        )
+
     search = RandomizedSearchCV(
         estimator=estimator,
         param_distributions=SEARCH_SPACES[model_type],
         n_iter=ExperimentConfig.RANDOM_SEARCH_ITER,
-        cv=ExperimentConfig.CV_FOLDS,
+        cv=cv_strategy,
         scoring=ExperimentConfig.SCORING,
         n_jobs=ExperimentConfig.N_JOBS,
         random_state=ExperimentConfig.RANDOM_STATE
     )
     
-    search.fit(X, y)
+    if groups is not None:
+        search.fit(X, y, groups=groups)
+    else:
+        search.fit(X, y)
     log_message(f"Best parameters found: {search.best_params_}", level="INFO")
     log_message(f"Best cross-validation score: {search.best_score_:.4f}", level="INFO")
     log_message(f"Total time: {time.time() - start_time:.2f} seconds", level="DEBUG")
