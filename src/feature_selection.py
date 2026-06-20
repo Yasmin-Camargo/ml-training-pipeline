@@ -60,7 +60,18 @@ def run_rfe(X, y, model_type, groups=None):
         log_message("=== Feature Importances (RFECV Final Model) ===", level="INFO")
         for feature_name, score in feature_score_pairs:
             log_message(f"Feature: {feature_name:<20} | Importance: {score:.6f}", level="INFO")
+
+        max_features = getattr(ExperimentConfig, 'RFE_MAX_FEATURES', None)
+        if max_features and len(feature_score_pairs) > max_features:
+            log_message(f"Limiting selected features from {len(selected_features)} to the top {max_features}.", level="INFO")
+            feature_score_pairs = feature_score_pairs[:max_features]
+            selected_features = [feat for feat, score in feature_score_pairs]
     else:
         log_message("Could not extract feature importance/coefficients from this estimator.", level="WARNING")
+
+        max_features = getattr(ExperimentConfig, 'RFE_MAX_FEATURES', None)
+        if max_features and len(selected_features) > max_features:
+            log_message(f"Limiting selected features from {len(selected_features)} to {max_features} (original RFECV order).", level="INFO")
+            selected_features = selected_features[:max_features]
     
     return selected_features

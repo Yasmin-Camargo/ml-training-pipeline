@@ -17,7 +17,10 @@ class DataConfig:
     GROUP_COLUMN = 'VideoName'
     RESOLUTION_COLUMNS = ['FrameWidth', 'FrameHeight']
     
-    REMOVE_COLUMNS_CODEC = ['FinalDecision', 'IsIntra', 'IsSplit', 'VideoName', 'EncoderPreset', 'Frame', 'X_Pos', 'Y_Pos', 'FrameWidth', 'FrameHeight']
+    REMOVE_COLUMNS_CODEC = ['FinalDecision', 'IsIntra', 'IsSplit', 'VideoName', 'EncoderPreset', 'Frame', 'X_Pos', 'Y_Pos', 'FrameWidth', 'FrameHeight'] 
+    
+    # Correlation-based removal (threshold 0.9)
+    + ['BTDepth', 'BlockAreaGroup', 'CU_QP', 'FrameWidth', 'QTDepth', 'blk_pixel_std_dev', 'blk_pixel_variance', 'blk_var_h', 'blk_var_v', 'cu_bt_depth', 'cu_mt_depth', 'num_intra_neighbors4', 'ref_is_intra']
     
     REMOVE_COLUMNS = REMOVE_COLUMNS_CODEC
     
@@ -32,7 +35,7 @@ class ExperimentConfig:
     RANDOM_STATE = 42
     N_JOBS = 5
     TEST_SIZE = 0.25
-    MAX_SAMPLES_PER_CLASS = 20000
+    MAX_SAMPLES_PER_CLASS = 2000
     NORMALIZE_DATA = True
     
     # Handling Missing Values
@@ -48,6 +51,7 @@ class ExperimentConfig:
     RFE_ENABLED = True
     RFE_STEP = 1
     RFE_MIN_FEATURES = 5
+    RFE_MAX_FEATURES = 20
     
     # Hyperparameter Tuning
     RANDOM_SEARCH_ITER = 2000
