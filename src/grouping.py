@@ -1,75 +1,7 @@
 import pandas as pd
 from src.utils import log_message
 
-def _group_by_frame_level(df):
-    """
-    Estratégia: Hierarquia Exaustiva
-    Agrupa separando cada FrameLevel individualmente (1, 2, 3, 4, 5).
-    """
-    groups = {}
-    for level in df['FrameLevel'].unique():
-        groups[str(int(level))] = df[df['FrameLevel'] == level].copy()
-    return groups
-
-def _group_by_frame_tier(df):
-    """
-    Estratégia: Hierarquia Otimizada (Base vs Descartáveis)
-    Base_Tier: Níveis 1 e 2 (Imagens de Referência / Alta qualidade)
-    Leaf_Tier: Níveis 3, 4, 5 (Imagens não-referência / Fortemente comprimidas)
-    """
-    groups = {}
-    groups['Base_Tier'] = df[df['FrameLevel'] <= 2].copy()
-    groups['Leaf_Tier'] = df[df['FrameLevel'] > 2].copy()
-    return groups
-
-def _group_by_neighborhood(df):
-    """
-    Estratégia: Contexto Espacial (Baseado na sua melhor feature)
-    Pure_Inter_Context: Nenhum vizinho fez Intra (num_intra_ciip_neighbors == 0)
-    Mixed_Intra_Context: Pelo menos 1 vizinho fez Intra (num_intra_ciip_neighbors > 0)
-    """
-    groups = {}
-    groups['Pure_Inter_Context'] = df[df['num_intra_ciip_neighbors'] == 0].copy()
-    groups['Mixed_Intra_Context'] = df[df['num_intra_ciip_neighbors'] > 0].copy()
-    return groups
-
-def _group_by_block_size(df):
-    """
-    Estratégia: Normalização de Custo Inter (Isola a matemática do inter_cost)
-    Large_Blocks: Área >= 64x64 (BlockAreaGroup >= 6)
-    Medium_Blocks: Área 16x16 a 32x32 (BlockAreaGroup 4 e 5)
-    Small_Blocks: Área <= 8x8 (BlockAreaGroup <= 3)
-    """
-    groups = {}
-    groups['Large_Blocks'] = df[df['BlockAreaGroup'] >= 6].copy()
-    groups['Medium_Blocks'] = df[(df['BlockAreaGroup'] == 4) | (df['BlockAreaGroup'] == 5)].copy()
-    groups['Small_Blocks'] = df[df['BlockAreaGroup'] <= 3].copy()
-    return groups
-
-def _group_by_qp(df):
-    """
-    Estratégia: Agressividade da Compressão
-    High_Quality_QP: TargetQP < 30 (Muitos detalhes mantidos)
-    Low_Quality_QP: TargetQP >= 30 (Forte compressão/borrão)
-    """
-    groups = {}
-    groups['High_Quality_QP'] = df[df['TargetQP'] < 30].copy()
-    groups['Low_Quality_QP'] = df[df['TargetQP'] >= 30].copy()
-    return groups
-
-def _group_by_texture(df):
-    """
-    Estratégia: Complexidade Espacial (Fáceis vs Difíceis)
-    Flat_Texture: Variância abaixo da mediana (blocos fáceis/lisos, ex: céu)
-    Complex_Texture: Variância acima da mediana (blocos caóticos, ex: folhas)
-    """
-    groups = {}
-    median_var = df['blk_pixel_variance'].median()
-    groups['Flat_Texture'] = df[df['blk_pixel_variance'] <= median_var].copy()
-    groups['Complex_Texture'] = df[df['blk_pixel_variance'] > median_var].copy()
-    return groups
-
-# --- Grouping Logic Functions ---
+# --- Row-based Grouping Logic Functions ---
 
 def determine_size_group(row):
     w = row["BlockWidth"]
@@ -125,11 +57,32 @@ def determine_single_group(row):
 
 def determine_frame_level_group(row):
     level = row["FrameLevel"]
-    
     if level == 0:
         return None
-        
-    return int(level)
+    return str(int(level))
+
+def determine_frame_tier_group(row):
+    if row['FrameLevel'] <= 2:
+        return 'Base_Tier'
+    return 'Leaf_Tier'
+
+def determine_neighborhood_group(row):
+    if row['num_intra_ciip_neighbors'] == 0:
+        return 'Pure_Inter_Context'
+    return 'Mixed_Intra_Context'
+
+def determine_block_size_group(row):
+    bag = row['BlockAreaGroup']
+    if bag >= 6:
+        return 'Large_Blocks'
+    elif bag in [4, 5]:
+        return 'Medium_Blocks'
+    return 'Small_Blocks'
+
+def determine_qp_group(row):
+    if row['TargetQP'] < 30:
+        return 'High_Quality_QP'
+    return 'Low_Quality_QP'
 
 # --- Strategy Map ---
 GROUPING_STRATEGIES = {
@@ -139,12 +92,12 @@ GROUPING_STRATEGIES = {
     'aspect_ratio': determine_aspect_ratio_group,
     'all': determine_all_group,
     'single': determine_single_group,
-    'frame_level': _group_by_frame_level,
-    'frame_tier': _group_by_frame_tier,
-    'neighborhood': _group_by_neighborhood,
-    'block_size': _group_by_block_size,
-    'qp': _group_by_qp,
-    'texture': _group_by_texture
+    'frame_level': determine_frame_level_group,
+    'frame_tier': determine_frame_tier_group,
+    'neighborhood': determine_neighborhood_group,
+    'block_size': determine_block_size_group,
+    'qp': determine_qp_group,
+    'texture': None  # Tratado de forma especial no apply_grouping_strategy
 }
 
 def apply_grouping_strategy(df, strategy_name):
@@ -155,7 +108,14 @@ def apply_grouping_strategy(df, strategy_name):
     
     df_out = df.copy()
     
-    df_out["BlockGroup"] = df_out.apply(GROUPING_STRATEGIES[strategy_name], axis=1)
+    # Tratamento especial para a estratégia 'texture' pois ela requer a mediana global
+    if strategy_name == 'texture':
+        median_var = df_out['blk_pixel_variance'].median()
+        df_out["BlockGroup"] = df_out['blk_pixel_variance'].apply(
+            lambda x: 'Flat_Texture' if x <= median_var else 'Complex_Texture'
+        )
+    else:
+        df_out["BlockGroup"] = df_out.apply(GROUPING_STRATEGIES[strategy_name], axis=1)
     
     before_drop = len(df_out)
     df_out = df_out.dropna(subset=["BlockGroup"])
