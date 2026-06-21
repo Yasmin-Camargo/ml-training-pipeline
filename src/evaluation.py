@@ -1,5 +1,7 @@
 import os
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, ConfusionMatrixDisplay, accuracy_score
 from config.settings_decision_intra import DataConfig, ExperimentConfig, RESULTS_DIR
@@ -9,15 +11,19 @@ from .visualization import generate_learning_curve
 def plot_roc_and_adjust_threshold(y_true, y_probs, group_name, model_type, output_dir):
     """
     Plots the ROC Curve and calculates the mathematically optimal threshold (Youden's J statistic),
-    along with the default 0.5 threshold baseline.
+    along with the default 0.5 threshold baseline. Generates a side-by-side Confusion Matrix plot
+    with high DPI and large fonts for academic publishing.
     """
     fpr, tpr, thresholds = roc_curve(y_true, y_probs)
     roc_auc = auc(fpr, tpr)
     
     results_thresholds = {}
     
-    plt.figure(figsize=(13, 10))
-    plt.plot(fpr, tpr, color='darkgray', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
+    # =========================================================================
+    # PART 1: ROC CURVE PLOT
+    # =========================================================================
+    plt.figure(figsize=(12, 9))
+    plt.plot(fpr, tpr, color='darkgray', lw=3, label=f'ROC curve (AUC = {roc_auc:.3f})')
     plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
     
     log_message(f"--- TRADE-OFF ANALYSIS (FOCUS ON COMPLEXITY REDUCTION VS QUALITY) ---", level="INFO")
@@ -35,13 +41,10 @@ def plot_roc_and_adjust_threshold(y_true, y_probs, group_name, model_type, outpu
         log_message(f"  -> Recall: {tpr[idx_default]*100:.1f}% | Accuracy: {acc_default*100:.2f}%", level="INFO")
         log_message(f"  -> Lost Blocks (FN): {fn_def} | Wasted processed blocks (FP): {fp_def}", level="INFO")
     
-    plt.plot(fpr[idx_default], tpr[idx_default], marker='s', markersize=12, color='blue', 
+    plt.plot(fpr[idx_default], tpr[idx_default], marker='s', markersize=14, color='blue', 
              label=f'Default ML (Thresh 0.5)\nRecall: {tpr[idx_default]*100:.1f}% | Acc: {acc_default*100:.1f}%')
 
-    # =========================================================================
     # 2. THE BEST MATHEMATICAL TRADE-OFF: YOUDEN'S J STATISTIC
-    # Maximizes true positive rate (Recall) and minimizes false positive rate simultaneously
-    # =========================================================================
     youden_j = tpr - fpr
     idx_youden = np.argmax(youden_j)
     opt_thresh_youden = thresholds[idx_youden]
@@ -58,28 +61,117 @@ def plot_roc_and_adjust_threshold(y_true, y_probs, group_name, model_type, outpu
         log_message(f"  -> Threshold: {opt_thresh_youden:.4f} | Recall: {tpr[idx_youden]*100:.1f}% | Accuracy: {acc_youden*100:.2f}%", level="INFO")
         log_message(f"  -> Lost Blocks (FN): {fn_youden} | Wasted processed blocks (FP): {fp_youden}", level="INFO")
         
-        # How much time are we saving by skipping blocks?
-        saved_blocks_youden = cm_youden[0, 0] # True Negatives (Where the time reduction is!)
+        saved_blocks_youden = cm_youden[0, 0] 
         log_message(f"  -> COMPLEXITY REDUCTION: VVC will skip {saved_blocks_youden} blocks!", level="INFO")
         
     # Highlight the Youden point with a huge purple star
-    plt.plot(fpr[idx_youden], tpr[idx_youden], marker='*', markersize=20, color='purple', 
+    plt.plot(fpr[idx_youden], tpr[idx_youden], marker='*', markersize=24, color='purple', 
              label=f'Optimal (Youden)\nThresh: {opt_thresh_youden:.3f} | Recall: {tpr[idx_youden]*100:.1f}% | Acc: {acc_youden*100:.1f}%')
 
-    # Plot visual configurations
+    # Plot visual configurations for ROC
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
-    plt.xlabel('False Positive Rate (Reduces Time Saving)')
-    plt.ylabel('True Positive Rate / Recall (Protects BD-Rate)')
-    plt.title(f'ROC Analysis with Youden\'s Optimal Threshold - {model_type} ({group_name})')
-    plt.legend(loc="lower right")
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.xlabel('False Positive Rate (Reduces Time Saving)', fontsize=16)
+    plt.ylabel('True Positive Rate / Recall (Protects BD-Rate)', fontsize=16)
+    plt.title(f'ROC Analysis with Youden\'s Optimal Threshold - {model_type} ({group_name})', fontsize=18, pad=15)
+    plt.legend(loc="lower right", fontsize=14)
     plt.grid(True, linestyle=':', alpha=0.6)
     
     roc_path = os.path.join(output_dir, f'roc_tradeoff_{model_type}_{group_name}.png')
-    plt.savefig(roc_path, bbox_inches='tight')
+    plt.savefig(roc_path, bbox_inches='tight', dpi=300)
+    plt.close()
+
+    # =========================================================================
+    # PART 2: SIDE-BY-SIDE CONFUSION MATRIX PLOT (BEFORE vs AFTER)
+    # =========================================================================
+    fig, axes = plt.subplots(1, 2, figsize=(18, 8))
+    
+    # Left Plot: Default ML (Threshold 0.5)
+    disp_default = ConfusionMatrixDisplay(confusion_matrix=cm_default, display_labels=[0, 1])
+    disp_default.plot(ax=axes[0], cmap=plt.cm.Blues, values_format='d')
+    axes[0].set_title(f"Before: Default ML (Threshold 0.500)\nAcc: {acc_default*100:.2f}% | Recall: {tpr[idx_default]*100:.2f}%", fontsize=16)
+    axes[0].set_xlabel('Predicted label', fontsize=15)
+    axes[0].set_ylabel('True label', fontsize=15)
+    axes[0].tick_params(axis='both', labelsize=14)
+    
+    for text in disp_default.text_.ravel():
+        text.set_fontsize(16)
+    
+    # Right Plot: Optimal Youden Threshold
+    disp_youden = ConfusionMatrixDisplay(confusion_matrix=cm_youden, display_labels=[0, 1])
+    disp_youden.plot(ax=axes[1], cmap=plt.cm.Oranges, values_format='d')
+    axes[1].set_title(f"After: Youden's Index (Threshold {opt_thresh_youden:.3f})\nAcc: {acc_youden*100:.2f}% | Recall: {tpr[idx_youden]*100:.2f}%", fontsize=16)
+    axes[1].set_xlabel('Predicted label', fontsize=15)
+    axes[1].set_ylabel('True label', fontsize=15)
+    axes[1].tick_params(axis='both', labelsize=14)
+    
+    for text in disp_youden.text_.ravel():
+        text.set_fontsize(16)
+    
+    plt.suptitle(f"Confusion Matrix Comparison: {model_type} ({group_name})", fontsize=22, fontweight='bold', y=1.02)
+    plt.tight_layout()
+    
+    cm_path = os.path.join(output_dir, f'cm_comparison_{model_type}_{group_name}.png')
+    plt.savefig(cm_path, bbox_inches='tight', dpi=300)
     plt.close()
 
     return results_thresholds
+
+
+
+def generate_shap_explanation(final_model, X_train_samp, output_dir, model_type):
+    """
+    Generates SHAP Summary Plot (Beeswarm) showing the top 10 features.
+    """
+    try:
+        import shap
+
+        log_message("Generating SHAP Summary Plot...", level="INFO")
+
+        sample_size = min(500, len(X_train_samp))
+        X_sample = X_train_samp.sample(
+            n=sample_size,
+            random_state=42
+        )
+
+        explainer = shap.Explainer(final_model, X_sample)
+
+        shap_values = explainer(X_sample)
+
+        plt.figure(figsize=(12, 10))
+
+        shap.summary_plot(
+            shap_values,
+            X_sample,
+            plot_type="dot",
+            max_display=10,
+            show=False
+        )
+
+        plt.title(
+            f"SHAP Impact on Model Decision - Top 10 Features ({model_type})",
+            fontsize=18,
+            pad=20
+        )
+
+        plt.tight_layout()
+        plt.savefig(
+            os.path.join(
+                output_dir,
+                f"shap_summary_{model_type}.png"
+            ),
+            bbox_inches="tight",
+            dpi=300
+        )
+        plt.close()
+
+    except Exception as e:
+        log_message(
+            f"Could not generate SHAP plot: {e}",
+            level="WARNING"
+        )
 
 def evaluate_and_save(
     final_model,
@@ -142,7 +234,7 @@ def evaluate_and_save(
                     log_message(f"    - {target_name} = {cls}: {mean_cls*100:.2f}% mean confidence", level="INFO")
             
             # === START OF THRESHOLD ANALYSIS (VVC) ===
-            if len(unique_classes) == 2: # Only performs ROC for binary problems
+            if ExperimentConfig.RUN_ROC_ANALYSIS and len(unique_classes) == 2: # Only performs ROC for binary problems
                 y_probs_positive = probas[:, 1]
                 
                 # Create a specific folder for the charts based on the grouping strategy
@@ -209,8 +301,26 @@ def evaluate_and_save(
             )
     except Exception as e:
         log_message(f"Error generating end-of-pipeline learning curve: {e}", level="ERROR")
+        
+    
+    # 7. SHAP Explanability Analysis   
+    if ExperimentConfig.RUN_SHAP_ANALYSIS:
+        try:
+            model_out_dir = os.path.join(RESULTS_DIR, grouping_name, str(model_strategie_id))
+            
+            X_train_filtered = X_train[selected_cols].sample(n=min(500, len(X_train)))
+            
+            generate_shap_explanation(
+                final_model, 
+                X_train_filtered, 
+                model_out_dir, 
+                current_model_type
+            )
+        except Exception as e:
+            log_message(f"SHAP explanation skipped: {e}", level="ERROR")
 
-    # 7. Export to C++ via callback (Handles both Tree and LR)
+
+    # 8. Export to C++ via callback (Handles both Tree and LR)
     if ExperimentConfig.EXPORT_CPP:
         try:
             if export_model_callback:

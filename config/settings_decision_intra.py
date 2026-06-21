@@ -17,10 +17,9 @@ class DataConfig:
     GROUP_COLUMN = 'VideoName'
     RESOLUTION_COLUMNS = ['FrameWidth', 'FrameHeight']
     
-    REMOVE_COLUMNS_CODEC = ['FinalDecision', 'IsIntra', 'IsSplit', 'VideoName', 'EncoderPreset', 'Frame', 'X_Pos', 'Y_Pos', 'FrameWidth', 'FrameHeight'] 
-    
     # Correlation-based removal (threshold 0.9)
-    + ['BTDepth', 'BlockAreaGroup', 'CU_QP', 'FrameWidth', 'QTDepth', 'blk_pixel_std_dev', 'blk_pixel_variance', 'blk_var_h', 'blk_var_v', 'cu_bt_depth', 'cu_mt_depth', 'num_intra_neighbors4', 'ref_is_intra']
+    CORRELATION_COLUMNS = ['BTDepth', 'BlockAreaGroup', 'CU_QP', 'FrameWidth', 'QTDepth', 'blk_pixel_std_dev', 'blk_pixel_variance', 'blk_var_h', 'blk_var_v', 'cu_bt_depth', 'cu_mt_depth', 'num_intra_neighbors4', 'ref_is_intra']
+    REMOVE_COLUMNS_CODEC = ['FinalDecision', 'IsIntra', 'IsSplit', 'VideoName', 'EncoderPreset', 'Frame', 'X_Pos', 'Y_Pos', 'FrameWidth', 'FrameHeight'] + CORRELATION_COLUMNS
     
     REMOVE_COLUMNS = REMOVE_COLUMNS_CODEC
     
@@ -62,6 +61,9 @@ class ExperimentConfig:
     RUN_LEARNING_CURVES_AT_END = False
     LEARNING_CURVE_TRAIN_SIZES = [0.1, 0.25, 0.5, 0.75, 1.0]
     EXPORT_CPP = True
+    
+    RUN_ROC_ANALYSIS = True
+    RUN_SHAP_ANALYSIS = True
     
     # Active Grouping Strategies
     # Options: 'area', 'max', 'orientation', 'aspect_ratio', 'all', 'single'

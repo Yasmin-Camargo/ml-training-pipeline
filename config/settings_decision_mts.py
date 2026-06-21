@@ -56,7 +56,10 @@ class ExperimentConfig:
     RUN_LEARNING_CURVES = False
     RUN_LEARNING_CURVES_AT_END = False
     LEARNING_CURVE_TRAIN_SIZES = [0.1, 0.25, 0.5, 0.75, 1.0]
-    EXPORT_CPP = True
+    EXPORT_CPP = True    
+
+    RUN_ROC_ANALYSIS = True
+    RUN_SHAP_ANALYSIS = True
 
     # Active Grouping Strategies
     # Options: 'area', 'max', 'orientation', 'aspect_ratio', 'all', 'single'
