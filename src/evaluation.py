@@ -123,55 +123,41 @@ def plot_roc_and_adjust_threshold(y_true, y_probs, group_name, model_type, outpu
 
 def generate_shap_explanation(final_model, X_train_samp, output_dir, model_type):
     """
-    Generates SHAP Summary Plot (Beeswarm) showing the top 10 features.
+    Generates a professional SHAP Summary Plot (Beeswarm) showing the top 10 features.
     """
     try:
         import shap
-
         log_message("Generating SHAP Summary Plot...", level="INFO")
-
-        sample_size = min(500, len(X_train_samp))
-        X_sample = X_train_samp.sample(
-            n=sample_size,
-            random_state=42
-        )
-
-        explainer = shap.Explainer(final_model, X_sample)
-
-        shap_values = explainer(X_sample)
-
+        
+        explainer = shap.TreeExplainer(final_model)
+        
+        shap_values = explainer.shap_values(X_train_samp)
+        
+        if isinstance(shap_values, list):
+            shap_values = shap_values[1]     
+       
+        if len(shap_values.shape) > 2:
+            shap_values = shap_values[:, :, 1]
+            
         plt.figure(figsize=(12, 10))
-
+        
         shap.summary_plot(
-            shap_values,
-            X_sample,
-            plot_type="dot",
-            max_display=10,
+            shap_values, 
+            X_train_samp, 
+            plot_type="dot", 
+            max_display=10, 
             show=False
         )
-
-        plt.title(
-            f"SHAP Impact on Model Decision - Top 10 Features ({model_type})",
-            fontsize=18,
-            pad=20
-        )
-
+        
+        plt.title(f"SHAP Impact on Model Decision - Top 10 Features ({model_type})", fontsize=18, pad=20)
         plt.tight_layout()
-        plt.savefig(
-            os.path.join(
-                output_dir,
-                f"shap_summary_{model_type}.png"
-            ),
-            bbox_inches="tight",
-            dpi=300
-        )
+        plt.savefig(os.path.join(output_dir, f'shap_summary_{model_type}.png'), bbox_inches='tight', dpi=300)
         plt.close()
-
+        
+        log_message("SHAP Beeswarm Plot (Top 10) saved successfully.", level="INFO")
     except Exception as e:
-        log_message(
-            f"Could not generate SHAP plot: {e}",
-            level="WARNING"
-        )
+        log_message(f"Could not generate SHAP plot: {e}", level="WARNING")
+
 
 def evaluate_and_save(
     final_model,
